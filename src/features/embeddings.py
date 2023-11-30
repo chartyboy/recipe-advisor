@@ -446,32 +446,32 @@ class RecipeEmbeddings:
         return res
 
 
-if __name__ == "__main__":
-    model_name = "BAAI/bge-large-en"
-    model_kwargs = {"device": "cuda"}
-    encode_kwargs = {"normalize_embeddings": False}
+# if __name__ == "__main__":
+#     model_name = "BAAI/bge-large-en"
+#     model_kwargs = {"device": "cuda"}
+#     encode_kwargs = {"normalize_embeddings": False}
 
-    hf = HuggingFaceBgeEmbeddings(
-        model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
-    )
-    data_path = "./datasets/interim"
-    persist_path = "./chroma_db_allrecipes"
-    # sites = ["allrecipes.jl", "epicurious.jl", "foodnetwork.jl", "tasty.jl"]
-    # sources = ["allrecipes.com", "epicurious.com", "foodnetwork.com", "tasty.co"]
-    sites = ["allrecipes_cleaned.jsonl"]
-    sources = ["allrecipes.com"]
-    json_path = [os.path.join(data_path, website) for website in sites]
-    source_map = dict(zip(json_path, sources))
-    # base_collections = ["name", "ingredient", "instruction"]
-    base_collections = ["name", "ingredient", "instruction"]
-    recipe_embed = RecipeEmbeddings(
-        json_path=json_path,
-        embedding_model=hf,
-        persist_path=persist_path,
-        base_collections=base_collections,
-        reset=False,
-    )
-    _ = recipe_embed.process()
-    _ = recipe_embed.create_summed_collection(["name", "ingredient", "instruction"])
+#     hf = HuggingFaceBgeEmbeddings(
+#         model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
+#     )
+#     data_path = "./datasets/interim"
+#     persist_path = "./chroma_db_allrecipes"
+#     # sites = ["allrecipes.jl", "epicurious.jl", "foodnetwork.jl", "tasty.jl"]
+#     # sources = ["allrecipes.com", "epicurious.com", "foodnetwork.com", "tasty.co"]
+#     sites = ["allrecipes_cleaned.jsonl"]
+#     sources = ["allrecipes.com"]
+#     json_path = [os.path.join(data_path, website) for website in sites]
+#     source_map = dict(zip(json_path, sources))
+#     # base_collections = ["name", "ingredient", "instruction"]
+#     base_collections = ["name", "ingredient", "instruction"]
+#     recipe_embed = RecipeEmbeddings(
+#         json_path=json_path,
+#         embedding_model=hf,
+#         persist_path=persist_path,
+#         base_collections=base_collections,
+#         reset=False,
+#     )
+#     _ = recipe_embed.process()
+#     _ = recipe_embed.create_summed_collection(["name", "ingredient", "instruction"])
 
-    print("Finished")
+#     print("Finished")

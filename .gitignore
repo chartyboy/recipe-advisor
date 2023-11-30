@@ -22,6 +22,8 @@ Thumbs.db
 # Chroma database files
 **/chroma_db*
 *.sqlite3
+!**/chroma_db_sample
+!**/chroma_db_sample/*.sqlite3
 
 # JSON Files
 *.jsonl

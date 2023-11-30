@@ -1,9 +1,8 @@
 import json
 import locale
 
-print(locale.getdefaultlocale())
 data = []
-with open("./datasets/raw/recipes.jl", "r", encoding="utf-8") as f:
+with open("./datasets/raw/allrecipes.jl", "r", encoding="utf-8") as f:
     for line in f:
         data.append(json.loads(line))
 
