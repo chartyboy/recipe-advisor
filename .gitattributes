@@ -1,0 +1,8 @@
+*.jl filter=lfs diff=lfs merge=lfs -text
+*.jsonl filter=lfs diff=lfs merge=lfs -text
+*.bin filter=lfs diff=lfs merge=lfs -text
+*.sqlite3 filter=lfs diff=lfs merge=lfs -text
+*.jsonl !text !filter !merge !diff
+*.jl !text !filter !merge !diff
+*.bin !text !filter !merge !diff
+*.sqlite3 !text !filter !merge !diff
