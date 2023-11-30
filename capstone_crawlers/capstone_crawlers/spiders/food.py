@@ -1,0 +1,74 @@
+import sqlite3
+import json
+import scrapy
+import os
+import urllib.parse as url
+import re
+from tqdm import tqdm
+from scrapy.crawler import CrawlerProcess
+from scrapy.shell import inspect_response
+
+from capstone_crawlers.spiders.spider_utils import parse_json_recipe
+
+
+class FoodSpider(scrapy.Spider):
+    name = "food"
+    custom_settings = {
+        "FEEDS": {"food.jl": {"format": "jsonlines", "overwrite": True}},
+        "LOG_LEVEL": "INFO",
+        # "CLOSESPIDER_PAGECOUNT": 100,
+        # "DOWNLOAD_DELAY": 0.2,
+        # "CONCURRENT_REQUESTS": 1,
+    }
+
+    def start_requests(self):
+        url = "https://www.food.com/recipe?ref=nav&pn="
+        n_pages = 8000 + 1
+        for i in tqdm(range(1, n_pages)):
+            page_url = url + str(i)
+            yield scrapy.Request(page_url, self.parse_page)
+
+    def parse_page(self, response):
+        # Get container of tiles
+        container = response.xpath("//div[@class='container-sm-md gk-tile-content']")
+
+        # Get recipe links from tiles in container
+        recipe_link = container.xpath("")
+        # Capture all category items from A-Z
+        for heading in response.xpath("//li[@class='grouped-list__item']/a/@href"):
+            next_page = response.urljoin(heading.get())
+            if next_page is not None:
+                yield scrapy.Request(next_page, self.parse_categories)
+
+    def parse_categories(self, response):
+        # Get number of recipes available for this ingredient
+        try:
+            n_recipes = int(
+                response.xpath("//span[@class='feed-page__heading-count']/text()").get()
+            )
+        except TypeError:
+            n_recipes = 300
+
+        ingredient = response.xpath("//h1[@class='feed-page__heading ']/text()").get()
+
+        body = {
+            "feed": 0,
+            "size": n_recipes,
+            "slug": ingredient.lower(),
+            "type": "ingredient",
+        }
+        api_quote = url.urlencode(body).replace("+", "-")
+        api_req = response.urljoin("/api/proxy/tasty/feed-page?" + api_quote)
+        yield scrapy.Request(api_req, self.parse_body)
+
+    def parse_body(self, response):
+        queried_recipes = json.loads(response.body)
+
+        for recipe in queried_recipes["items"]:
+            recipe_page = url.urljoin("https://tasty.co/recipe/", recipe["slug"])
+            yield scrapy.Request(recipe_page, self.parse_recipe)
+
+    def parse_recipe(self, response):
+        # yield None
+        if response is not None:
+            yield parse_json_recipe(response)
