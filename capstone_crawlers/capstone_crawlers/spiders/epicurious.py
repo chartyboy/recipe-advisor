@@ -7,7 +7,10 @@ import re
 from scrapy.crawler import CrawlerProcess
 from scrapy.shell import inspect_response
 
-from capstone_crawlers.spiders.spider_utils import parse_json_recipe, replace_newlines
+from capstone_crawlers.spiders.spider_utils import (
+    parse_json_recipe,
+    replace_newlines,
+)
 
 
 class EpicuriousSpider(scrapy.Spider):

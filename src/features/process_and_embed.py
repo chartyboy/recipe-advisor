@@ -3,28 +3,8 @@ import os
 from src import embeddings, process_recipes
 from langchain.embeddings import HuggingFaceBgeEmbeddings
 
-if __name__ == "__main__":
-    # Process raw text data
-    schema = ".recipe_name, .ingredients, [.instructions[].text]"
-    columns = ["recipe_name", "ingredients", "instructions"]
-    # fpath = [
-    #     "./datasets/raw/epicurious.jl",
-    #     "./datasets/raw/foodnetwork.jl",
-    #     "./datasets/raw/allrecipes.jl",
-    #     "./datasets/raw/tasty.jl",
-    # ]
-    # outpath = [
-    #     "./datasets/interim/epicurious_cleaned.jsonl",
-    #     "./datasets/interim/foodnetwork_cleaned.jsonl",
-    #     "./datasets/interim/allrecipes_cleaned.jsonl",
-    #     "./datasets/interim/tasty_cleaned.jsonl",
-    # ]
-    fpath = ["./datasets/raw/sample.jl"]
-    outpath = ["./datasets/raw/processed_sample.jsonl"]
 
-    rp = process_recipes.RecipeProcessor(schema)
-    rp.process_recipes(dict(zip(fpath, outpath)))
-
+def embed():
     # Create embedding database
     model_name = "BAAI/bge-large-en"
     model_kwargs = {"device": "cuda"}
@@ -34,11 +14,16 @@ if __name__ == "__main__":
         model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
     )
     data_path = "./datasets/interim"
-    persist_path = "./datasets/processed/sample_db"
-    # sites = ["allrecipes.jl", "epicurious.jl", "foodnetwork.jl", "tasty.jl"]
-    # sources = ["allrecipes.com", "epicurious.com", "foodnetwork.com", "tasty.co"]
-    sites = ["processed_sample.jsonl"]
-    sources = ["test.com"]
+    persist_path = "./datasets/processed/chroma_db"
+    sites = [
+        "allrecipes_cleaned.jsonl",
+        "epicurious_cleaned.jsonl",
+        "foodnetwork_cleaned.jsonl",
+        "tasty_cleaned.jsonl",
+    ]
+    sources = ["allrecipes.com", "epicurious.com", "foodnetwork.com", "tasty.co"]
+    # sites = ["processed_sample.jsonl"]
+    # sources = ["test.com"]
     json_path = [os.path.join(data_path, website) for website in sites]
     source_map = dict(zip(json_path, sources))
     base_collections = ["name", "ingredient", "instruction"]
@@ -47,9 +32,41 @@ if __name__ == "__main__":
         embedding_model=hf,
         persist_path=persist_path,
         base_collections=base_collections,
-        reset=False,
+        reset=True,
     )
-    _ = recipe_embed.process()
+    # _ = recipe_embed.process()
+    # _ = recipe_embed.create_summed_collection(["instruction"])
     _ = recipe_embed.create_summed_collection(["name", "ingredient", "instruction"])
+
+
+def process():
+    # Process raw text data
+    schema = ".recipe_name, .ingredients, [.instructions[].text]"
+    columns = ["recipe_name", "ingredients", "instructions"]
+    fpath = [
+        "./datasets/raw/epicurious.jl",
+        "./datasets/raw/foodnetwork.jl",
+        "./datasets/raw/allrecipes.jl",
+        "./datasets/raw/tasty.jl",
+    ]
+    outpath = [
+        "./datasets/interim/epicurious_cleaned.jsonl",
+        "./datasets/interim/foodnetwork_cleaned.jsonl",
+        "./datasets/interim/allrecipes_cleaned.jsonl",
+        "./datasets/interim/tasty_cleaned.jsonl",
+    ]
+    # fpath = ["./datasets/raw/sample.jl"]
+    # outpath = ["./datasets/interim/processed_sample2.jsonl"]
+
+    rp = process_recipes.RecipeProcessor(schema)
+    rp.process_recipes(dict(zip(fpath, outpath)))
+
+
+if __name__ == "__main__":
+    print("Cleaning data...")
+    process()
+
+    print("Now embedding...")
+    embed()
 
     print("Finished")

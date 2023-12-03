@@ -155,7 +155,7 @@ class RecipeEmbeddings:
         create_collections : Create Chroma database collections from text data.
         """
 
-        self.load_jsonlines()
+        # self.load_jsonlines()
         self.create_collections()
 
     def load_jsonlines(self):
@@ -331,6 +331,7 @@ class RecipeEmbeddings:
         for key in corpus_keys:
             if key not in self.embeddings.keys():
                 stored_collection = self.get_embeddings(key)
+                pass
                 self.embeddings[key] = stored_collection["embeddings"]
         vectors_to_add = [self.embeddings[key] for key in corpus_keys]
         summed_embeddings = self.sum_vertically(vectors_to_add)
@@ -342,7 +343,7 @@ class RecipeEmbeddings:
         )
         return collection_handle
 
-    def get_embeddings(self, collection_name: str) -> chromadb.GetResult:
+    def get_embeddings(self, collection_name: str) -> chromadb.GetResult | dict:
         """
         Retrieve vector embeddings and documents from a Chroma collection
 
@@ -358,7 +359,8 @@ class RecipeEmbeddings:
         """
 
         collection_handle = self.chroma_client.get_collection(name=collection_name)
-        return collection_handle.get(include=["embeddings", "documents"])
+        res = collection_handle.get(include=["embeddings", "documents"])
+        return res
 
     @staticmethod
     def sum_vertically(embeddings: Iterable[ArrayLike]) -> np.ndarray:
@@ -368,12 +370,12 @@ class RecipeEmbeddings:
         Parameters
         ----------
         embeddings: Iterable[ArrayLike]
-            3-dimensional tensor of vector embeddings.
+            n-dimensional tensor of vector embeddings.
 
         Returns
         -------
         summed_embeddings : np.ndarray
-            2-d np.ndarray of vector embeddings
+            n-1 dimensional np.ndarray of vector embeddings
         """
 
         summed_embeddings = np.sum(

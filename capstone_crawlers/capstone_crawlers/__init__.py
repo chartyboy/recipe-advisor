@@ -1,1 +1,3 @@
-from capstone_crawlers.spiders import spider_utils
+# import spiders.spider_utils
+
+# from capstone_crawlers import settings

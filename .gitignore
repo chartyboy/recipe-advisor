@@ -30,6 +30,8 @@ Thumbs.db
 *.jl
 !**/sample.jl
 !**/processed_sample.jsonl
+!**/notebooks/*.jsonl
+!**/notebooks/*.jl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

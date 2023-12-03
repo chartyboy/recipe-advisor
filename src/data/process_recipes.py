@@ -1,5 +1,6 @@
 import jq
 import json
+import re
 import pandas as pd
 from dataclasses import dataclass
 from typing import List, Dict, Any, Collection, Iterable, Generator, Optional
@@ -76,15 +77,18 @@ class RecipeProcessor:
         df : pd.DataFrame
             pandas Dataframe created from content lists and column names.
         """
-        if isinstance(content[0], dict):
-            df = pd.DataFrame.from_records(content)
-        elif isinstance(content[0], list):
-            if columns:
-                df = pd.DataFrame(content, columns=columns)
+        if content:
+            if isinstance(content[0], dict):
+                df = pd.DataFrame.from_records(content)
+            elif isinstance(content[0], list):
+                if columns:
+                    df = pd.DataFrame(content, columns=columns)
+                else:
+                    df = pd.DataFrame(content)
             else:
-                df = pd.DataFrame(content)
+                raise ValueError(f"Content is of invalid type, got {type(content[0])}")
         else:
-            raise ValueError("Content is of invalid type")
+            df = pd.DataFrame(content)
         return df
 
     def df_to_jsonlines(self, out_path: str, df: pd.DataFrame) -> None:
@@ -99,8 +103,8 @@ class RecipeProcessor:
         df : pd.Dataframe
             Dataframe to read data from.
         """
-        jsonl_out = df.to_json(orient="records", lines=True)
-        with open(out_path, "w+", encoding="utf-8") as f:
+        jsonl_out = df.to_json(orient="records", lines=True, force_ascii=False)
+        with open(out_path, "w", encoding="utf-8") as f:
             f.write(jsonl_out)
 
     def condense_lists(self, content: List[List[str]], sep: str = ", ") -> List[str]:
@@ -189,7 +193,7 @@ class RecipeProcessor:
 
         pad : List[str]
             Values to join with strings in `content`. Strings will be concatenated
-            after a string in `content`,
+            before a string in `content`,
 
         sep : str
             String sequence to separate successive strings.
@@ -202,14 +206,16 @@ class RecipeProcessor:
         concat_result : str
             Result of combining two lists of strings.
         """
-
+        if len(pad) != len(content):
+            raise RuntimeError("Lists are not of equal length.")
         try:
             concat_result = ""
             for padding, text in zip(pad, content):
                 to_concat = padding + pad_sep + text + sep
                 concat_result += to_concat
 
-        except (TypeError, ValueError):
+        # Escape on attempting to concat str and None together
+        except TypeError:
             return ""
 
         return concat_result
@@ -250,6 +256,22 @@ class RecipeProcessor:
                 except:
                     return None
 
+            def round_ingredients(string):
+                # Match numbers with decimal point and more numbers after
+                matches = re.finditer(r"\d[\d]*\.\d+", string)
+                head = 0
+                string_fragments = list()
+                for amount in matches:
+                    string_fragments.append(string[head : amount.start()])
+                    head = amount.end()
+
+                    ingredient_amount = float(amount.group(0))
+                    rounded_amount = str(round(ingredient_amount, 2))
+                    string_fragments.append(rounded_amount)
+
+                res = "".join(string_fragments)
+                return res
+
             recipe_df["step_instructions"] = recipe_df["instructions"].apply(
                 join_strings, to_replace=to_replace
             )
@@ -282,7 +304,7 @@ class RecipeProcessor:
             # Replace decimal codepoints with unicode characters
             recipe_df = recipe_df.apply(lambda x: x.str.replace("&#39;", "'"))
             recipe_df = recipe_df.apply(lambda x: x.str.replace("&#34;", '"'))
-
+            recipe_df["ingredients"] = recipe_df["ingredients"].apply(round_ingredients)
             # Pad strings so that each entry has a header
             pad = ["Recipe Name", "\nIngredients", "\nCooking Instructions"]
             recipe_df["whole_recipe"] = recipe_df[
