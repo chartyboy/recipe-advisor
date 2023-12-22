@@ -8,10 +8,20 @@ def parse_json_recipe(response):
         recipe = json.loads(
             response.xpath("//script[@type='application/ld+json']/text()").get()
         )
+        # First type of JSON schema used for aggregate websites
+        # List of dicts of website elements, where the first element contains
+        # the info needed
         if isinstance(recipe, list):
             recipe = recipe[0]
+
+        # Second type of JSON schema, dict with @graph key corresponding
+        # to list of dicts for site elements
         elif isinstance(recipe, dict):
-            pass
+            if "@graph" in recipe.keys():
+                for content_dict in recipe["@graph"]:
+                    if content_dict["@type"].lower() == "recipe":
+                        recipe = content_dict
+                        break
         else:
             raise TypeError("")
     except:
@@ -50,6 +60,7 @@ def parse_json_recipe(response):
         "ingredients": recipe_info["recipeIngredient"],
         "instructions": recipe_info["recipeInstructions"],
         "body": json.dumps(recipe),
+        "source_url": response.url,
     }
 
 

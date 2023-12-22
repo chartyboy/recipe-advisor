@@ -54,8 +54,8 @@ class EmbeddingFunctionInterface(chromadb.EmbeddingFunction):
 
     Attributes
     ----------
-    embedding_function : Callable[[List[Document]], chromadb.Embeddings]
-        Function with single input argument of list of Document
+    embedding_function : Callable[[List[str]], chromadb.Embeddings]
+        Function with single input argument of list of strings
 
     See Also
     --------
@@ -66,12 +66,12 @@ class EmbeddingFunctionInterface(chromadb.EmbeddingFunction):
     """
 
     def __init__(
-        self, embedding_function: Callable[[List[Document]], chromadb.Embeddings]
+        self, embedding_function: Callable[[List[str]], chromadb.Embeddings]
     ) -> None:
         super().__init__()
         self.embedding_function = embedding_function
 
-    def __call__(self, input: List[Document]) -> chromadb.Embeddings:
+    def __call__(self, input: List[str]) -> chromadb.Embeddings:
         return self.embedding_function(input)
 
 

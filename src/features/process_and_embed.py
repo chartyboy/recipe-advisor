@@ -6,7 +6,8 @@ from langchain.embeddings import HuggingFaceBgeEmbeddings
 
 def embed():
     # Create embedding database
-    model_name = "BAAI/bge-large-en"
+    # model_name = "BAAI/bge-large-en"
+    model_name = "BAAI/bge-small-en-v1.5"
     model_kwargs = {"device": "cuda"}
     encode_kwargs = {"normalize_embeddings": False}
 
@@ -14,7 +15,7 @@ def embed():
         model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
     )
     data_path = "./datasets/interim"
-    persist_path = "./datasets/processed/chroma_db"
+    persist_path = "./datasets/processed/chroma_db_small"
     sites = [
         "allrecipes_cleaned.jsonl",
         "epicurious_cleaned.jsonl",
@@ -34,8 +35,7 @@ def embed():
         base_collections=base_collections,
         reset=True,
     )
-    # _ = recipe_embed.process()
-    # _ = recipe_embed.create_summed_collection(["instruction"])
+    _ = recipe_embed.process()
     _ = recipe_embed.create_summed_collection(["name", "ingredient", "instruction"])
 
 
@@ -59,7 +59,7 @@ def process():
     # outpath = ["./datasets/interim/processed_sample2.jsonl"]
 
     rp = process_recipes.RecipeProcessor(schema)
-    rp.process_recipes(dict(zip(fpath, outpath)))
+    rp.process_recipes(dict(zip(fpath, outpath)), columns=columns)
 
 
 if __name__ == "__main__":

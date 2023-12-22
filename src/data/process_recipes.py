@@ -220,7 +220,11 @@ class RecipeProcessor:
 
         return concat_result
 
-    def process_recipes(self, path_dict: dict[str, str]):
+    def process_recipes(
+        self,
+        path_dict: dict[str, str],
+        columns=["recipe_name", "ingredients", "instructions"],
+    ):
         """
         Main loop to load and process recipe data.
 
@@ -235,7 +239,6 @@ class RecipeProcessor:
         to the corresponding file in path_dict.values().
         """
 
-        columns = ["recipe_name", "ingredients", "instructions"]
         for inpath, outpath in path_dict.items():
             print(f"Now processing {inpath}...")
             content = self.load_jsonlines(inpath)
@@ -258,24 +261,29 @@ class RecipeProcessor:
 
             def round_ingredients(string):
                 # Match numbers with decimal point and more numbers after
-                matches = re.finditer(r"\d[\d]*\.\d+", string)
+                matches = list(re.finditer(r"\d[\d]*\.\d+", string))
                 head = 0
                 string_fragments = list()
-                for amount in matches:
-                    string_fragments.append(string[head : amount.start()])
-                    head = amount.end()
 
-                    ingredient_amount = float(amount.group(0))
-                    rounded_amount = str(round(ingredient_amount, 2))
-                    string_fragments.append(rounded_amount)
+                if matches:
+                    for amount in matches:
+                        string_fragments.append(string[head : amount.start()])
+                        head = amount.end()
 
-                res = "".join(string_fragments)
+                        ingredient_amount = float(amount.group(0))
+                        rounded_amount = str(round(ingredient_amount, 2))
+                        string_fragments.append(rounded_amount)
+                    string_fragments.append(string[head:])
+                    res = "".join(string_fragments)
+                else:
+                    res = string
                 return res
 
             recipe_df["step_instructions"] = recipe_df["instructions"].apply(
                 join_strings, to_replace=to_replace
             )
             # Drop rows with empty values
+            recipe_df = recipe_df.replace(to_replace={"": None})
             original_size = recipe_df.shape[0]
             recipe_df = recipe_df.dropna()
             num_dropped = original_size - recipe_df.shape[0]
@@ -294,7 +302,9 @@ class RecipeProcessor:
                 ),
                 append=False,
             )
-            recipe_df[recipe_df.columns[1:-1]] = recipe_df[recipe_df.columns[1:-1]].map(
+            recipe_df[["ingredients", "instructions"]] = recipe_df[
+                ["ingredients", "instructions"]
+            ].map(
                 lambda x: ", ".join(x)
             )  # type: ignore
             recipe_df["step_instructions"] = recipe_df["step_instructions"].apply(

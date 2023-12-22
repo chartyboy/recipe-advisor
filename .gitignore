@@ -15,7 +15,8 @@ Thumbs.db
 # Jupyter files #
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
-
+query_chroma.ipynb
+test*.ipynb
 # VSCode
 .vscode/*
 
@@ -28,10 +29,14 @@ Thumbs.db
 # JSON Files
 *.jsonl
 *.jl
+**/datasets/*/*.json
 !**/sample.jl
 !**/processed_sample.jsonl
 !**/notebooks/*.jsonl
 !**/notebooks/*.jl
+
+# Text Files
+**/datasets/*/*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
