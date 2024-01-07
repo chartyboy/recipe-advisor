@@ -1,0 +1,69 @@
+services:
+  https-proxy:
+    image: steveltn/https-portal:1
+    ports:
+      - '80:80'
+      - '443:443'
+    networks:
+      - proxy
+    restart: no
+    environment:
+      DOMAINS: 'retriever.com -> http://database:8000'
+      STAGE: 'local' # Don't use production until staging works
+      # FORCE_RENEW: 'true'
+
+  retriever:
+    image: retriever
+    build:
+      context: .
+      dockerfile: ./retriever_base.Dockerfile
+    networks:
+      - db
+      - proxy
+
+  database:
+    build:
+      context: .
+      dockerfile: chroma.Dockerfile
+    networks:
+      - db
+      - proxy
+    volumes:
+      - type: bind
+        source: ${DB_DATA_PATH}
+        target: /chroma/chroma
+        read_only: true
+      - chroma-logs:/chroma-logs
+    command:
+      [
+        "uvicorn",
+        "chromadb.app:app",
+        "--workers",
+        "1",
+        "--host",
+        "database",
+        "--port",
+        "8000",
+        "--proxy-headers",
+        "--log-config",
+        "chromadb/log_config.yml",
+        "--timeout-keep-alive",
+        "30"
+      ]
+
+  phobos:
+    container_name: phobos
+    image: busybox
+    command: sleep infinity
+    networks:
+      - db
+      - proxy
+
+networks:
+  db:
+    driver: bridge
+  proxy:
+
+
+volumes:
+  chroma-logs:
