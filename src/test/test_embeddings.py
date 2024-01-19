@@ -5,7 +5,16 @@ import json
 import os
 
 from pytest_mock.plugin import MockerFixture
+from typing import Callable
+
 from src import embeddings
+from src.features.interfaces import EmbeddingFunctionInterface
+from src.test.stub_classes import (
+    StubDocument,
+    StubJSONLoader,
+    StubChromaCollection,
+    StubChromaClient,
+)
 
 
 # Modify class to be tested by removing constructor calls to instance methods
@@ -14,34 +23,34 @@ class EmbeddingsTestObject(embeddings.RecipeEmbeddings):
         return
 
 
-class StubDocument:
-    def __init__(self) -> None:
-        self.page_content = "TEST"
+# class StubDocument:
+#     def __init__(self) -> None:
+#         self.page_content = "TEST"
 
 
-class StubJSONLoader:
-    @staticmethod
-    def load(*args, **kwargs):
-        return [StubDocument()]
+# class StubJSONLoader:
+#     @staticmethod
+#     def load(*args, **kwargs):
+#         return [StubDocument()]
 
 
-class StubChromaCollection:
-    @staticmethod
-    def add(*args, **kwargs):
-        pass
+# class StubChromaCollection:
+#     @staticmethod
+#     def add(*args, **kwargs):
+#         pass
 
-    @staticmethod
-    def get(*args, **kwargs):
-        pass
+#     @staticmethod
+#     def get(*args, **kwargs):
+#         pass
 
 
-class StubChromaClient:
-    @staticmethod
-    def get_or_create_collection(*args, **kwargs):
-        return StubChromaCollection()
+# class StubChromaClient:
+#     @staticmethod
+#     def get_or_create_collection(*args, **kwargs):
+#         return StubChromaCollection()
 
-    def get_collection(*args, **kwargs):
-        return StubChromaCollection
+#     def get_collection(*args, **kwargs):
+#         return StubChromaCollection()
 
 
 @pytest.fixture
@@ -56,11 +65,16 @@ def function_to_wrap():
 @pytest.fixture()
 def embeddings_instance(tmp_path_factory, function_to_wrap):
     json_path = [""]
-    embedding_model = function_to_wrap
-    persist_path = tmp_path_factory.mktemp("db")
+    embedding_model = EmbeddingFunctionInterface(function_to_wrap)
+    persist_path = str(tmp_path_factory.mktemp("db"))
     instance = EmbeddingsTestObject(json_path, embedding_model, persist_path)
     instance.chroma_client = StubChromaClient()  # type: ignore
     return instance
+
+
+@pytest.fixture(scope="session")
+def jsonl_length():
+    return 4
 
 
 @pytest.fixture(scope="session")
@@ -71,7 +85,7 @@ def jsonl_file(tmp_path_factory, jsonl_length):
         for i in range(jsonl_length):
             f.write(json.dumps(content) + "\n")
 
-    return fn
+    return str(fn)
 
 
 @pytest.fixture
@@ -86,7 +100,7 @@ class TestEmbeddingsHelpers:
         meta_func = embeddings.metadata_factory(website)
         returned_metadata = meta_func(dict(), dict())
         # Should return a function that takes two dicts as input, and modifies and returns a dict named "metadata"
-        assert isinstance(meta_func, function)
+        assert isinstance(meta_func, Callable)
         assert isinstance(returned_metadata, dict)
         assert "website" in returned_metadata.keys()
 
@@ -139,13 +153,18 @@ class TestEmbeddings:
         assert len(texts) == num_docs
 
     def test_load_jsonlines(self, embeddings_instance, jsonl_file, monkeypatch):
-        def mock_create_loader():
+        def mock_create_loader(*args, **kwargs):
             return StubJSONLoader()
 
         monkeypatch.setattr(
             embeddings.RecipeEmbeddings, "create_loader", mock_create_loader
         )
         embeddings_instance.json_path = [jsonl_file, jsonl_file]
+        embeddings_instance.source_map = dict(
+            zip(
+                embeddings_instance.json_path, [""] * len(embeddings_instance.json_path)
+            )
+        )
         embeddings_instance.load_jsonlines()
 
         first_key = list(embeddings_instance.document_corpus.keys())[0]
@@ -158,7 +177,7 @@ class TestEmbeddings:
         embeddings_instance.reset = False
         # Should take a path and return a chroma client handle
         embeddings_instance.initialize_chroma()
-        assert isinstance(embeddings_instance.chroma_client, chromadb.Client.__class__)
+        assert isinstance(embeddings_instance.chroma_client, chromadb.api.client.Client)
 
     def test_reset_chroma(self, embeddings_instance, dir_to_delete):
         embeddings_instance.persist_path = dir_to_delete
@@ -168,7 +187,7 @@ class TestEmbeddings:
         assert not os.path.exists(dir_to_delete)
         pass
 
-    def test_create_chroma_collection(self, embeddings_instance):
+    def test_create_chroma_collection(self, embeddings_instance, function_to_wrap):
         exceeds_max_batch_size = 50000
         under_max_batch_size = 2
         collection_name = "test"
@@ -180,7 +199,9 @@ class TestEmbeddings:
         # Should create and return a single chroma collection handle
         # Should be able to handle creating collections with sizes larger than
         # CHROMA_MAX_BATCH_SIZE = 41666
-
+        embeddings_instance.embedding_function = EmbeddingFunctionInterface(
+            function_to_wrap
+        )
         returned_collection = embeddings_instance.create_chroma_collection(
             collection_name, small_embeddings, small_documents
         )

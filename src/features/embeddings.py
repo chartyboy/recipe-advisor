@@ -6,7 +6,7 @@ from typing import Callable, List, Any, Iterable, Optional, Sequence
 from langchain.docstore.document import Document
 from dataclasses import dataclass, field
 from numpy.typing import ArrayLike
-
+from src.features.interfaces import EmbeddingFunctionInterface
 import chromadb
 import numpy as np
 import uuid
@@ -48,31 +48,31 @@ def metadata_factory(source_website: str) -> Callable[[dict, dict], dict]:
 
 
 # Wrapper class for Chroma to pass validation checks with Langchain embedding interfaces
-class EmbeddingFunctionInterface(chromadb.EmbeddingFunction):
-    """
-    Wrapper class to allow Langchain embedding interfaces to pass Chroma validation checks.
+# class EmbeddingFunctionInterface(chromadb.EmbeddingFunction):
+#     """
+#     Wrapper class to allow Langchain embedding interfaces to pass Chroma validation checks.
 
-    Attributes
-    ----------
-    embedding_function : Callable[[List[str]], chromadb.Embeddings]
-        Function with single input argument of list of strings
+#     Attributes
+#     ----------
+#     embedding_function : Callable[[List[str]], chromadb.Embeddings]
+#         Function with single input argument of list of strings
 
-    See Also
-    --------
-    Chroma EmbeddingFunction_
+#     See Also
+#     --------
+#     Chroma EmbeddingFunction_
 
-    .. _EmbeddingFunction: https://docs.trychroma.com/embeddings
+#     .. _EmbeddingFunction: https://docs.trychroma.com/embeddings
 
-    """
+#     """
 
-    def __init__(
-        self, embedding_function: Callable[[List[str]], chromadb.Embeddings]
-    ) -> None:
-        super().__init__()
-        self.embedding_function = embedding_function
+#     def __init__(
+#         self, embedding_function: Callable[[List[str]], chromadb.Embeddings]
+#     ) -> None:
+#         super().__init__()
+#         self.embedding_function = embedding_function
 
-    def __call__(self, input: List[str]) -> chromadb.Embeddings:
-        return self.embedding_function(input)
+#     def __call__(self, input: List[str]) -> chromadb.Embeddings:
+#         return self.embedding_function(input)
 
 
 def default_base_collections():
@@ -82,7 +82,7 @@ def default_base_collections():
 @dataclass
 class RecipeEmbeddings:
     """
-    Interface to handle embedding generation from JSON text data.
+    Collection of methods to handle embedding generation from JSON text data.
 
     Attributes
     ----------
@@ -145,6 +145,11 @@ class RecipeEmbeddings:
             self.source_map = dict(zip(self.json_path, self.sources))
         self.load_jsonlines()
 
+    def _load_embedding_model(self):
+        self.embedding_function = EmbeddingFunctionInterface(
+            self.embedding_model.embed_documents
+        )
+
     def process(self):
         """
         Main loop to load and process data.
@@ -199,11 +204,6 @@ class RecipeEmbeddings:
             for document_type in collection_types:
                 self.document_corpus[document_type] += loaded_documents[document_type]
         self.corpus = self.document_corpus.values()
-
-    def _load_embedding_model(self):
-        self.embedding_function = EmbeddingFunctionInterface(
-            self.embedding_model.embed_documents
-        )
 
     def initialize_chroma(self):
         """

@@ -16,7 +16,11 @@ class StubChromaCollection:
 
     @staticmethod
     def get(*args, **kwargs):
-        pass
+        return {"documents": ["Test"]}
+
+    @staticmethod
+    def query(*args, n_results=0, **kwargs):
+        return {"documents": ["Test"] * n_results}
 
 
 class StubChromaClient:
@@ -25,4 +29,15 @@ class StubChromaClient:
         return StubChromaCollection()
 
     def get_collection(*args, **kwargs):
-        return StubChromaCollection
+        return StubChromaCollection()
+
+class StubErrorChromaClient:
+    @staticmethod
+    def get_or_create_collection(*args, **kwargs):
+        raise Exception
+
+
+class StubEmbeddingModel:
+    @staticmethod
+    def embed_documents(*args, **kwargs):
+        return [[1, 2]]

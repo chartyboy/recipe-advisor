@@ -8,18 +8,37 @@ services:
       - proxy
     restart: no
     environment:
-      DOMAINS: 'retriever.com -> http://database:8000'
+      DOMAINS: 'retriever.com -> http://retriever:80'
       STAGE: 'local' # Don't use production until staging works
+      ERROR_LOG: default
+      ACCESS_LOG: default
       # FORCE_RENEW: 'true'
+    volumes:
+      - https-portal-data:/var/lib/https-portal
 
   retriever:
-    image: retriever
+    # image: retriever
     build:
       context: .
-      dockerfile: ./retriever_base.Dockerfile
+      dockerfile: simple_fastapi.Dockerfile
     networks:
       - db
       - proxy
+    volumes:
+      - type: bind
+        source: ${API_PATH}
+        target: /retriever
+        read_only: true
+    command:
+      [
+        "uvicorn",
+        "retriever.hello_world_api:app",
+        "--proxy-headers",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "80"
+      ]
 
   database:
     build:
@@ -27,33 +46,33 @@ services:
       dockerfile: chroma.Dockerfile
     networks:
       - db
-      - proxy
     volumes:
       - type: bind
         source: ${DB_DATA_PATH}
         target: /chroma/chroma
         read_only: true
-      - chroma-logs:/chroma-logs
     command:
       [
-        "uvicorn",
-        "chromadb.app:app",
-        "--workers",
-        "1",
+        "chroma",
+        "run",
+        "--path",
+        "/chroma/chroma",
         "--host",
         "database",
         "--port",
-        "8000",
-        "--proxy-headers",
-        "--log-config",
-        "chromadb/log_config.yml",
-        "--timeout-keep-alive",
-        "30"
+        "8000"
       ]
+
+  mariadb:
+    image: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: '<a secure password>'
+    networks:
+      - db
 
   phobos:
     container_name: phobos
-    image: busybox
+    build: chroma.Dockerfile
     command: sleep infinity
     networks:
       - db
@@ -66,4 +85,4 @@ networks:
 
 
 volumes:
-  chroma-logs:
+  https-portal-data:
