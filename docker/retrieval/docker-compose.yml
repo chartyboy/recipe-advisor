@@ -17,22 +17,38 @@ services:
       - https-portal-data:/var/lib/https-portal
 
   retriever:
-    # image: retriever
     build:
       context: .
-      dockerfile: simple_fastapi.Dockerfile
+      dockerfile: retriever_base.Dockerfile
     networks:
       - db
       - proxy
     volumes:
       - type: bind
-        source: ${API_PATH}
-        target: /retriever
+        source: ${API_SOURCE_PATH}
+        target: /src
         read_only: true
+
+      - type: bind
+        source: ${EMBED_MODEL_SOURCE}
+        target: ${EMBED_MODEL_CACHE}
+        read_only: true
+
+      - type: volume
+        source: api-keys-db
+        target: ${FASTAPI_SIMPLE_SECURITY_DB_PATH}
+    environment:
+      - CHROMA_HOST_ADDRESS=database
+      - CHROMA_HOST_PORT=8000
+      - FASTAPI_SIMPLE_SECURITY_SECRET=${API_SECRET_KEY}
+      - FASTAPI_SIMPLE_SECURITY_DB_LOCATION=${FASTAPI_SIMPLE_SECURITY_DB_PATH}/keys.db
+      - FAST_API_SIMPLE_SECURITY_AUTOMATIC_EXPIRATION=${FAST_API_SIMPLE_SECURITY_AUTOMATIC_EXPIRATION_DAYS}
+      - EMBED_MODEL_CACHE=${EMBED_MODEL_CACHE}
+
     command:
       [
         "uvicorn",
-        "retriever.hello_world_api:app",
+        "src.retriever.api:app",
         "--proxy-headers",
         "--host",
         "0.0.0.0",
@@ -63,26 +79,11 @@ services:
         "8000"
       ]
 
-  mariadb:
-    image: mariadb
-    environment:
-      MYSQL_ROOT_PASSWORD: '<a secure password>'
-    networks:
-      - db
-
-  phobos:
-    container_name: phobos
-    build: chroma.Dockerfile
-    command: sleep infinity
-    networks:
-      - db
-      - proxy
-
 networks:
   db:
-    driver: bridge
   proxy:
 
 
 volumes:
   https-portal-data:
+  api-keys-db:

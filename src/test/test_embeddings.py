@@ -7,7 +7,7 @@ import os
 from pytest_mock.plugin import MockerFixture
 from typing import Callable
 
-from src import embeddings
+from src.features import embeddings
 from src.features.interfaces import EmbeddingFunctionInterface
 from src.test.stub_classes import (
     StubDocument,

@@ -1,5 +1,5 @@
 #syntax=docker/dockerfile:labs
-FROM python:3.10-slim-bookworm as base
+FROM python:3.11-slim-bookworm as base
 
 RUN apt-get update --fix-missing && apt-get install -y --fix-missing \
     build-essential \
@@ -24,7 +24,7 @@ FROM base as final
 ENV PYTHONPATH = /:${PYTHONPATH}
 
 COPY --link --from=builder /install /usr/local
-COPY --link --from=builder /repo/recipe-advisor/src /src
+# COPY --link --from=builder /repo/recipe-advisor/src /src
 
-CMD uvicorn api:app --reload --host retriever --port 8000 --workers 1 --proxy-headers \
-    --app-dir /src/retriever
+# CMD uvicorn api:app --reload --host retriever --port 8000 --workers 1 --proxy-headers \
+#     --app-dir /src/retriever

@@ -9,48 +9,65 @@ from pydantic import BaseModel
 from langchain.embeddings import HuggingFaceBgeEmbeddings
 from typing import List, Dict, Any, Annotated
 
-from .auth import verify_key
+from fastapi_simple_security import api_key_router, api_key_security
 from src.features.interfaces import EmbeddingFunctionInterface
 
 # Initialize env vars
 CHROMA_HOST_ADDRESS = os.getenv("CHROMA_HOST_ADDRESS")
+CHROMA_HOST_PORT = os.getenv("CHROMA_HOST_PORT")
+EMBED_MODEL_CACHE = os.getenv("EMBED_MODEL_CACHE")
+
+database = dict()
+
+logger = logging.getLogger(__name__)
 
 
 # Initialize model
 @lru_cache
-async def database():
+async def connect_database():
     # Connect to db
-    logging.debug("Connecting to database.")
-    chroma_conn = chromadb.HttpClient(host=CHROMA_HOST_ADDRESS)
+    logger.debug("Connecting to database.")
+    chroma_conn = chromadb.HttpClient(host=CHROMA_HOST_ADDRESS, port=CHROMA_HOST_PORT)
 
-    logging.info("Successful database connection.")
+    logger.info("Successful database connection.")
+    logger.debug(chroma_conn.list_collections())
     return chroma_conn
 
 
 @lru_cache
-async def retriever_model():
-    logging.debug("Loading retriever model.")
+async def load_retriever_model():
+    logger.debug("Loading retriever model.")
     model_name = "BAAI/bge-large-en"
     # model_name = "BAAI/bge-small-en-v1.5"
     model_kwargs = {"device": "cpu"}
     encode_kwargs = {"normalize_embeddings": True}
     hf = HuggingFaceBgeEmbeddings(
-        model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
+        model_name=model_name,
+        model_kwargs=model_kwargs,
+        encode_kwargs=encode_kwargs,
+        cache_folder=EMBED_MODEL_CACHE,
     )
     embed_func = EmbeddingFunctionInterface(hf.embed_documents)
-    logging.info("Successfully loaded retriever model.")
+    logger.info("Successfully loaded retriever model.")
     return embed_func
 
 
-# Initialize model on API startup to avoid delaying loading to first API call
+async def initialize_database_and_retriever(
+    db: Annotated[Any, Depends(connect_database)],
+    retriever: Annotated[Any, Depends(load_retriever_model)],
+):
+    database["conn"] = db
+    database["retriever"] = retriever
+    return database
+
+
+# Initialize model on API startup to cache for actual API calls
 @asynccontextmanager
 async def lifespan(
     app: FastAPI,
-    conn: Annotated[Any, Depends(database)],
-    retriever: Annotated[Any, Depends(retriever_model)],
 ):
-    # database["conn"] = conn
-    # database["retriever"] = retriever
+    _ = await connect_database()
+    _ = await load_retriever_model()
 
     logging.info("Event: Global variables initialized")
     yield
@@ -59,10 +76,7 @@ async def lifespan(
 
 # Init API
 app = FastAPI(lifespan=lifespan)
-
-
-class TokenData(BaseModel):
-    username: str | None = None
+app.include_router(api_key_router, prefix="/auth", tags=["_auth"])
 
 
 class RetrieveRequest(BaseModel):
@@ -82,15 +96,16 @@ def homepage():
 
 
 @app.get(
-    "/retrieve", response_model=RetrieveResponse, dependencies=[Depends(verify_key)]
+    "/retrieve",
+    response_model=RetrieveResponse,
+    dependencies=[Depends(api_key_security)],
 )
 def retrieve(
     input: Annotated[RetrieveRequest, Depends(RetrieveRequest)],
-    conn: Annotated[Any, Depends(database)],
-    retriever: Annotated[Any, Depends(retriever_model)],
+    database: Annotated[Any, Depends(initialize_database_and_retriever)],
 ):
-    chroma_conn = conn
-    embed_func = retriever
+    chroma_conn = database["conn"]
+    embed_func = database["retriever"]
     try:
         collection_handle = chroma_conn.get_collection(
             input.collection_name, embedding_function=embed_func
@@ -99,6 +114,8 @@ def retrieve(
             query_texts=input.query, n_results=input.n_docs, include=["documents"]
         )
     except Exception as e:
-        raise HTTPException(status_code=404, detail="Collection or items not found")
-    docs = res["documents"]
+        logger.debug(e)
+        raise HTTPException(status_code=404, detail="Collection or items not found\n")
+    logger.debug(res["documents"])
+    docs = res["documents"][0]
     return RetrieveResponse(input_query=input.query, docs=docs)

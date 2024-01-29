@@ -16,11 +16,11 @@ class StubChromaCollection:
 
     @staticmethod
     def get(*args, **kwargs):
-        return {"documents": ["Test"]}
+        return {"documents": [["Test"]]}
 
     @staticmethod
     def query(*args, n_results=0, **kwargs):
-        return {"documents": ["Test"] * n_results}
+        return {"documents": [["Test"] * n_results]}
 
 
 class StubChromaClient:
@@ -30,6 +30,7 @@ class StubChromaClient:
 
     def get_collection(*args, **kwargs):
         return StubChromaCollection()
+
 
 class StubErrorChromaClient:
     @staticmethod
@@ -41,3 +42,21 @@ class StubEmbeddingModel:
     @staticmethod
     def embed_documents(*args, **kwargs):
         return [[1, 2]]
+
+
+class StubLLM:
+    @staticmethod
+    def query(*args, **kwargs):
+        return "test_reponse"
+
+
+class MockResponse:
+    def __init__(self, json_content=dict(), status_code=200) -> None:
+        self.json_content = json_content
+        self.status_code = status_code
+
+    def set_json_content(self, json_content):
+        self.json_content = json_content
+
+    def json(self):
+        return self.json_content

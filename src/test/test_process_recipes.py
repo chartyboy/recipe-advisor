@@ -1,7 +1,7 @@
 import pytest
 import json
 import pandas as pd
-from src import process_recipes
+from src.data import process_recipes
 
 
 @pytest.fixture(scope="session")

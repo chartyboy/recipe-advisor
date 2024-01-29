@@ -35,6 +35,9 @@ test*.ipynb
 !**/notebooks/*.jsonl
 !**/notebooks/*.jl
 
+# Test Database
+/sqlite.db
+
 # Text Files
 **/datasets/*/*.txt
 
@@ -167,6 +170,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.streamlit
 
 # Spyder project settings
 .spyderproject
