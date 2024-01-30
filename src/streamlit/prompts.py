@@ -36,6 +36,8 @@ Cooking Instructions:
 3. Reduce heat to low and add sour cream, stirring well and allowing to heat through. Cover and set this mixture aside.
 4. Cook egg noodles according to package directions. Drain. Serve mushroom mixture over noodles., """
 
+BASE_CONTEXT_INPUTS = {"beef_recipe": beef_recipe, "mushroom_recipe": mushroom_recipe}
+
 modified_name_prompt = ChatPromptTemplate.from_template(
     """
 You are a helpful, respectful and honest assistant. Always answer as helpfully as possible. Your job is to come up with new names for recipes. You will 
@@ -53,13 +55,13 @@ but it is not mentioned in the recipe name. The replacement, canola oil, should 
 should be 'Portobello Mushroom Stroganoff with Canola Oil'. Final Answer: Portobello Mushroom Stroganoff with Canola Oil
 
 ### Input:
-Q. Complete the following task by reasoning step-by-step. Create a new recipe name for {recipe_name} where {old_ingredient} will be replaced with {new_ingredient}.
+Q. Complete the following task by reasoning step-by-step. Create a new recipe name for {recipe_name} where in the new recipe, {customization}.
 Return the name of the recipe at the end of your response.
 {user_recipe}
 ### Response:
 A.
 """
-)
+).partial(beef_recipe=BASE_CONTEXT_INPUTS["beef_recipe"])
 
 cot_multi_prompt = ChatPromptTemplate.from_template(
     """
@@ -69,6 +71,7 @@ be given an original recipe and a request from the user to customize the recipe.
 
 ### Instruction:
 Q. Complete the following task by reasoning step-by-step. Create a new recipe called Mushroom Stroganoff from this recipe for Beef Stroganoff. In the new recipe, replace the ground beef from the original recipe with portobello mushrooms.
+Original Recipe:
 {beef_recipe}
 
 A. The request to replace ground beef for portobello mushrooms indicates that any references to ground beef should be changed to use portobello mushrooms instead. 
@@ -83,24 +86,23 @@ Step 4 should be changed to mention the mushroom mixture instead of the beef mix
 Example Recipes:
 {retrieved_recipes}
 
-Q. Complete the following task by reasoning step-by-step. Create a new recipe called {new_name} from this recipe for {recipe_name}. In the new recipe, replace the {old_ingredient} from the original recipe with {new_ingredient}.
+Q. Complete the following task by reasoning step-by-step. Create a new recipe called {new_name} from this recipe for {recipe_name}. In the new recipe, {customization}.
+Original Recipe:
 {user_recipe}
 
 ### Response:
 A. 
 """
-)
+).partial(**BASE_CONTEXT_INPUTS)
 
 strip_name_prompt = ChatPromptTemplate.from_template(
     """
     You are a helpful, respectful and honest assistant. Always answer as helpfully as possible. Your task is to find the final name of the recipe in a group of sentences. Return the name of the recipe and nothing else.
 
     ### Input:
-    Find the final name of the recipe in the following sentences. Return the name of the recipe and nothing else.
+    Find the final name of the recipe in the following sentences. Return only the name of the recipe.
     {resp}
     
     ### Response:
 """
 )
-
-BASE_CONTEXT_INPUTS = {"beef_recipe": beef_recipe, "mushroom_recipe": mushroom_recipe}

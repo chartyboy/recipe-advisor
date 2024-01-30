@@ -1,12 +1,14 @@
 import chromadb
 import os
 import logging
+import sys
 
 from contextlib import asynccontextmanager
 from functools import lru_cache
+from urllib.parse import urljoin, unquote_plus
 from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel
-from langchain.embeddings import HuggingFaceBgeEmbeddings
+from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 from typing import List, Dict, Any, Annotated
 
 from fastapi_simple_security import api_key_router, api_key_security
@@ -20,11 +22,17 @@ EMBED_MODEL_CACHE = os.getenv("EMBED_MODEL_CACHE")
 database = dict()
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 # Initialize model
 @lru_cache
-async def connect_database():
+def connect_database():
     # Connect to db
     logger.debug("Connecting to database.")
     chroma_conn = chromadb.HttpClient(host=CHROMA_HOST_ADDRESS, port=CHROMA_HOST_PORT)
@@ -35,7 +43,7 @@ async def connect_database():
 
 
 @lru_cache
-async def load_retriever_model():
+def load_retriever_model():
     logger.debug("Loading retriever model.")
     model_name = "BAAI/bge-large-en"
     # model_name = "BAAI/bge-small-en-v1.5"
@@ -66,12 +74,12 @@ async def initialize_database_and_retriever(
 async def lifespan(
     app: FastAPI,
 ):
-    _ = await connect_database()
-    _ = await load_retriever_model()
+    _ = connect_database()
+    _ = load_retriever_model()
 
-    logging.info("Event: Global variables initialized")
+    logger.info("Event: Global variables initialized")
     yield
-    logging.info("Event: API Shutdown")
+    logger.info("Event: API Shutdown")
 
 
 # Init API
@@ -111,11 +119,13 @@ def retrieve(
             input.collection_name, embedding_function=embed_func
         )
         res = collection_handle.query(
-            query_texts=input.query, n_results=input.n_docs, include=["documents"]
+            query_texts=unquote_plus(input.query),
+            n_results=input.n_docs,
+            include=["documents"],
         )
+        logger.debug(res)
     except Exception as e:
         logger.debug(e)
         raise HTTPException(status_code=404, detail="Collection or items not found\n")
-    logger.debug(res["documents"])
     docs = res["documents"][0]
     return RetrieveResponse(input_query=input.query, docs=docs)

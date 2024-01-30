@@ -1,19 +1,41 @@
 import streamlit as st
-import requests
-import uuid
 import atexit
 import logging
 import warnings
 import time
 import logging
+import sys
+import warnings
+
+warnings.filterwarnings("ignore")
 
 from datetime import datetime, timedelta
 
-from langchain.chat_models import ChatOpenAI as OpenAI
+# from langchain_community.llms import OpenAI
+from langchain_community.chat_models import ChatOpenAI as OpenAI
+from connections import ChromaConnection, BaseConnection
 
-from connections import ChromaConnection, TestConnection, BaseConnection, StubLLM
+from chain import initialize_LLM_chain
 
-logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO)
+
+
+@st.cache_resource()
+def init_loggers():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+
+    formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
+
+
+logger = init_loggers()
+
 
 RETRIEVER_API_BASE = st.secrets["RETRIEVER_API_BASE"]
 RETRIEVER_API_SECRET = st.secrets["RETRIEVER_API_SECRET"]
@@ -23,6 +45,10 @@ if "TEST_ENV" in st.secrets:
     TEST_ENV = True
 else:
     TEST_ENV = False
+
+
+def days_offset_from_current_time(n_days=1) -> datetime:
+    return datetime.utcnow() + timedelta(days=n_days)
 
 
 def update_expire_date(n_days: int = 1):
@@ -36,15 +62,36 @@ def update_expire_date(n_days: int = 1):
         )
         return
 
-    st.session_state.key_expire_datetime = datetime.utcnow() + timedelta(days=n_days)
-    st.session_state.key_expire = st.session_state.key_expire_datetime.timestamp()
-    logger.info(f"API key expires at {st.session_state.key_expire}")
+    st.session_state.key_expire_datetime = days_offset_from_current_time(n_days=1)
+    # st.session_state.key_expire = st.session_state.key_expire_datetime.timestamp()
+    logger.info(f"API key expires at {st.session_state.key_expire_datetime}")
+
+
+def validate_time(cached_data: dict) -> bool:
+    expire_time = cached_data["expires"]
+    if "key_expire_datetime" in st.session_state:
+        if expire_time < st.session_state.key_expire_datetime:
+            expire_time = st.session_state.key_expire_datetime
+
+    # Key has expired
+    if datetime.utcnow() >= expire_time:
+        return False
+    else:
+        return True
+
+
+@st.cache_resource(ttl="1d", validate=validate_time)
+def get_key() -> dict:
+    new_key = st.session_state.chroma_connection.get_connection()
+    expire_time = days_offset_from_current_time(n_days=1)
+    return {"key": new_key, "expires": expire_time}
 
 
 def refresh_key(conn: BaseConnection) -> None:
     if "key" not in st.session_state:
-        st.session_state.key = conn.get_connection()
-        update_expire_date(n_days=1)
+        key_data = get_key()
+        st.session_state.key = key_data["key"]
+        st.session_state.key_expire_datetime = key_data["expires"]
     elif datetime.utcnow() >= st.session_state.key_expire_datetime:
         conn.renew_key(st.session_state.key)
         update_expire_date(n_days=1)
@@ -54,45 +101,74 @@ def refresh_key(conn: BaseConnection) -> None:
 
 @st.cache_resource
 def init_retriever() -> BaseConnection:
+    logger.info("Creating new retriever connection")
     if TEST_ENV:
-        return TestConnection()
-    else:
-        return ChromaConnection(
+        # return TestConnection()
+        conn = ChromaConnection(
             base_url=RETRIEVER_API_BASE, api_secret=RETRIEVER_API_SECRET
         )
+        conn._verify = False
+        return conn
+    else:
+        conn = ChromaConnection(
+            base_url=RETRIEVER_API_BASE, api_secret=RETRIEVER_API_SECRET
+        )
+        conn._verify = False
+        return conn
 
 
 @st.cache_resource
 def init_llm():
+    import torch
+    from langchain_community.llms import HuggingFacePipeline
+    from transformers import pipeline
+
     if TEST_ENV:
-        return StubLLM()
+        # pipe = pipeline(
+        #     "text-generation",
+        #     model="GeneZC/MiniChat-2-3B",
+        #     torch_dtype=torch.bfloat16,
+        #     device_map="auto",
+        #     # max_new_tokens=512,
+        #     # do_sample=True,
+        #     # temperature=0.7,
+        #     # top_k=50,
+        #     # top_p=0.95,
+        #     # repetition_penalty=1.15
+        # )
+        # llm = HuggingFacePipeline(pipeline=pipe)
+        return OpenAI(model="gpt-3.5-turbo-1106", openai_api_key=OPENAI_API_KEY)
     else:
-        return OpenAI(model="gpt-3.5-turbo-1106")
+        return OpenAI(model="gpt-3.5-turbo-1106", openai_api_key=OPENAI_API_KEY)
+
+
+@st.cache_resource
+def register_shutdown_handler(_conn: BaseConnection, key):
+    logger.info("Registering shutdown handler")
+    atexit.register(_conn.revoke_key, key=key)
+    atexit.register(logger.info, "Running exit routine.")
 
 
 @st.cache_data
-def register_shutdown_handler(_conn: BaseConnection):
-    atexit.register(_conn.revoke_key, key=st.session_state.key)
-    atexit.register(logger.debug, "Running exit routine.")
-
-
-@st.cache_data
-def query_llm(query):
-    return st.session_state.llm.query(OPENAI_API_KEY, query)
+def query_llm(chain_inputs: dict, _docs):
+    llm_chain = initialize_LLM_chain(st.session_state.llm, _docs)
+    return llm_chain.invoke(chain_inputs)
 
 
 @st.cache_data
 def query_retriever(query: str):
     return st.session_state.chroma_connection.retrieve_documents(
-        st.session_state.key, query
+        st.session_state.key, query, n_docs=1
     )
 
 
 st.session_state.chroma_connection = init_retriever()
 st.session_state.llm = init_llm()
 refresh_key(st.session_state.chroma_connection)
-register_shutdown_handler(st.session_state.chroma_connection)
+register_shutdown_handler(st.session_state.chroma_connection, st.session_state.key)
 
+
+# App consts
 # st.set_page_config(layout="wide")
 modify_col_widths = [1.3, 2, 0.5, 2]
 add_another_row_button_label = "Add Another"
@@ -104,10 +180,8 @@ modify_button_key_base = "base_modify_button_"
 modify_text_key_base = "base_modify_"
 modify_end_text_key_base = "end_modify_"
 
-st.title("Recipe Helper")
-st.write("Instructions for app goes here")
 
-
+# UI helper functions
 def extend(key: str):
     st.session_state[key] += 1
 
@@ -126,64 +200,130 @@ def set_default_state(key: str, default_state):
         st.session_state[key] = default_state
 
 
-def gather(key_count, key_base) -> list[str]:
+def gather_by_key(key_count, key_base) -> list[str]:
     gathered = list()
     for i in range(st.session_state[key_count]):
         gathered.append(st.session_state[key_base + str(i)])
     return gathered
 
 
-def gather_inputs() -> dict[str, list[str]]:
-    ingredients = gather("n_ingredient", ingredient_input_key)
-    instructions = gather("n_instruction", instruction_input_key)
+def gather_inputs() -> dict[str, list[str] | str]:
+    ingredients = gather_by_key("n_ingredient", ingredient_input_key)
+    instructions = gather_by_key("n_instruction", instruction_input_key)
 
-    modifications = list()
+    modifications = dict()
     for i in range(st.session_state.n_modification):
         selectbox_key = selectbox_key_base + str(i)
         modify_type = st.session_state[selectbox_key]
         match modify_type:
             case "Replace":
-                modify_input = " "
-                modify_input = modify_input.join(
-                    [
-                        st.session_state[modify_text_key_base + str(i)],
-                        "with",
-                        st.session_state[modify_end_text_key_base + str(i)],
-                    ]
-                )
+                modify_input = [
+                    st.session_state[modify_text_key_base + str(i)].strip(),
+                    st.session_state[modify_end_text_key_base + str(i)].strip(),
+                ]
+                if (
+                    st.session_state[modify_text_key_base + str(i)].strip() == ""
+                    or st.session_state[modify_end_text_key_base + str(i)].strip() == ""
+                ):
+                    modify_input = ""
             case "Add":
-                modify_input = st.session_state[modify_text_key_base + str(i)]
+                modify_input = st.session_state[modify_text_key_base + str(i)].strip()
             case "Remove":
-                modify_input = st.session_state[modify_text_key_base + str(i)]
+                modify_input = st.session_state[modify_text_key_base + str(i)].strip()
             case "Vegetarian":
                 modify_input = ""
             case "Keto":
                 modify_input = ""
             case _:
                 modify_input = ""
-        modifications.append(modify_type + " " + modify_input)
+        if modify_input == "" and modify_type not in {"Vegetarian", "Keto"}:
+            pass
+        else:
+            if modify_type in modifications.keys():
+                pass
+            else:
+                modifications[modify_type] = list()
+            modifications[modify_type].append(modify_input)
+    formatted_modifications = format_customization(modifications)
 
     return {
         "Recipe Name": [st.session_state["name_input"]],
         "Ingredients": ingredients,
         "Instructions": instructions,
-        "Modifications": modifications,
+        "Modifications": formatted_modifications,
     }
 
 
-def format_inputs(inputs: dict) -> str:
+def format_recipe(inputs: dict) -> dict[str, str]:
     input_strings = list()
+    recipe = dict()
     for key, value in inputs.items():
         sub_input = list()
-        sub_input.append(key + "\n")
+        sub_input.append(key + ":")
         sub_input.append("\n".join(value))
-        input_strings.append("\n".join(sub_input))
-    return "\n\n".join(input_strings)
+
+        sub_string = "\n".join(sub_input)
+
+        input_strings.append(sub_string)
+
+        recipe[key] = sub_string
+    #     logger.info(sub_input)
+    #     logger.info(sub_string)
+    # logger.info(input_strings)
+    recipe["recipe"] = "\n\n".join(input_strings)
+    # logger.info(recipe["recipe"])
+    return recipe
 
 
-def assemble_inputs(inputs, docs) -> str:
-    return ""
+def format_customization(modifications: dict[str, str | list[str]]) -> str:
+    format_strings = list()
+    has_added_vegetarian = False
+    has_added_keto = False
 
+    for modify_type in modifications.keys():
+        for input in modifications[modify_type]:
+            match modify_type:
+                case "Replace":
+                    to_remove = input[0]
+                    to_include = input[1]
+                    format_strings.append(
+                        "replace the "
+                        + to_remove
+                        + " from the original recipe with "
+                        + to_include
+                    )
+                case "Add":
+                    format_strings.append("add " + input + " to the recipe")
+                case "Remove":
+                    format_strings.append("remove " + input + " from the recipe")
+                case "Vegetarian":
+                    if has_added_vegetarian:
+                        pass
+                    else:
+                        has_added_vegetarian = True
+                        format_strings.append(
+                            "make the recipe suitable for vegetarians"
+                        )
+                case "Keto":
+                    if has_added_keto:
+                        pass
+                    else:
+                        has_added_keto = True
+                        format_strings.append(
+                            "make the recipe suitable for a ketogenic diet"
+                        )
+
+    if len(format_strings) > 1:
+        format_strings[-1] = "and " + format_strings[-1]
+    formatted_customization = ", ".join(format_strings)
+    return formatted_customization
+
+
+# App layout
+st.title("Recipe Helper")
+st.write(
+    "Describe your recipe in the sections below. Include the customizations you want for your recipe, then hit the 'Modify my Recipe!' button"
+)
 
 set_default_state("n_ingredient", 1)
 set_default_state("n_instruction", 1)
@@ -383,15 +523,37 @@ with st.form("Input", border=False):
     if submit:
         with st.empty():
             st.write("Submitted!")
+
             with st.spinner("Retrieving..."):
                 time.sleep(1)
-                gathered_inputs = format_inputs(gather_inputs())
-                docs = query_retriever(gathered_inputs)
+                gathered = gather_inputs()
+                # logger.info(gathered)
+
+                recipe_input = {
+                    k: gathered[k]
+                    for k in ["Recipe Name", "Ingredients", "Instructions"]
+                }
+                gathered_inputs = format_recipe(recipe_input)
+                # logger.info(gathered_inputs)
+
+                docs = query_retriever(gathered_inputs["recipe"])
             if isinstance(docs, list):
+                docs_content = "\n\n".join(docs)
                 with st.spinner("Asking the LLM..."):
-                    llm_query = assemble_inputs(gathered_inputs, docs)
-                    llm_response = query_llm(llm_query)
+                    llm_chain = initialize_LLM_chain(st.session_state.llm, docs_content)
+                    chain_inputs = {
+                        "recipe_name": gathered_inputs["Recipe Name"],
+                        "customization": gathered["Modifications"],
+                        "user_recipe": gathered_inputs["recipe"],
+                    }
+                    result = query_llm(chain_inputs, docs_content)
+                    llm_response = result["output"]
+                    logger.info(result)
+                    # logger.info(type(llm_response))
             else:
                 llm_response = "Error in querying retriever API. Try again later."
-            # st.write(format_inputs(gather_inputs()))
-            st.write(llm_response)
+
+            with st.expander(label="Result", expanded=True):
+                # st.write(gathered_inputs)
+                # st.write(docs)
+                st.write(llm_response)

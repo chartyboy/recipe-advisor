@@ -7,14 +7,11 @@ import atexit
 import streamlit as st
 
 from datetime import datetime, timedelta
-from unittest.mock import Mock
-from dependency_injector import containers, providers
 from streamlit.testing.v1 import AppTest
 
 from stub_classes import MockResponse, StubLLM
 
 from src.streamlit import connections
-from src.streamlit.connections import ChromaConnection
 
 # from src.streamlit import test_app
 
@@ -40,7 +37,7 @@ def chroma_instance() -> connections.ChromaConnection:
 
 @pytest.fixture
 def streamlit_test_instance():
-    at = AppTest.from_file("../streamlit/test_app.py")
+    at = AppTest.from_file("../streamlit/app.py")
     at.secrets["RETRIEVER_API_BASE"] = "test"
     at.secrets["RETRIEVER_API_SECRET"] = "test-secret"
     at.secrets["OPENAI_API_KEY"] = "test-key"
