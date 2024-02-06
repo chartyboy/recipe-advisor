@@ -13,7 +13,7 @@ from src.retriever.api import (
     api_key_security,
     RetrieveResponse,
 )
-from src.test.stub_classes import (
+from .stub_classes import (
     StubChromaClient,
     StubChromaCollection,
     StubErrorChromaClient,
@@ -99,14 +99,14 @@ app.dependency_overrides[api_key_security] = override_api_key_security
 class TestRetrieveEndpoint:
     def test_retrieve_document_quantity(self):
         expected_number_of_documents = 4
-        response = client.get(
+        response = client.post(
             f"/retrieve?query=test&collection_name=test&n_docs={expected_number_of_documents}"
         )
         content = response.json()
         assert len(content["docs"]) == expected_number_of_documents
 
     def test_retrieve_document_type(self, query_params):
-        response = client.get("/retrieve", params=query_params)
+        response = client.post("/retrieve", params=query_params)
         content = response.json()
         assert isinstance(content["docs"][0], str)
 
@@ -115,7 +115,7 @@ class TestRetrieveEndpoint:
             return StubErrorChromaClient()
 
         app.dependency_overrides[connect_database] = override_error_database
-        response = client.get("/retrieve", params=query_params)
+        response = client.post("/retrieve", params=query_params)
         assert response.status_code == 404
         app.dependency_overrides[connect_database] = override_database
 
@@ -130,14 +130,14 @@ class TestAuthSchema:
         app.dependency_overrides[api_key_security] = override_api_key_security
 
     def test_fail_on_no_key(self, query_params):
-        response = client.get("/retrieve", params=query_params)
+        response = client.post("/retrieve", params=query_params)
         assert response.status_code == 403
         assert "docs" not in response.json().keys()
 
     def test_fail_on_invalid_key(self, query_params):
         invalid_key_header = {"api-key": "invalid-key"}
 
-        response = client.get(
+        response = client.post(
             "/retrieve", headers=invalid_key_header, params=query_params
         )
 
@@ -147,7 +147,7 @@ class TestAuthSchema:
     def test_pass_on_valid_key(self, valid_key, query_params):
         query_header = {"api-key": valid_key}
 
-        response = client.get("/retrieve", headers=query_header, params=query_params)
+        response = client.post("/retrieve", headers=query_header, params=query_params)
         content = response.json()
 
         assert response.status_code == 200
@@ -160,7 +160,7 @@ class TestAuthSchema:
         renew_payload = {"api-key": valid_key, "expiration-date": "2022-07-15"}
         client.get("/auth/renew", headers=secret_header, params=renew_payload)
 
-        response = client.get("/retrieve", headers=query_header, params=query_params)
+        response = client.post("/retrieve", headers=query_header, params=query_params)
 
         assert response.status_code == 403
         assert "docs" not in response.json().keys()
@@ -170,7 +170,7 @@ class TestAuthSchema:
         query_header = revoke_payload
         client.get("/auth/revoke", headers=secret_header, params=revoke_payload)
 
-        response = client.get("/retrieve", headers=query_header, params=query_params)
+        response = client.post("/retrieve", headers=query_header, params=query_params)
 
         assert response.status_code == 403
         assert "docs" not in response.json().keys()

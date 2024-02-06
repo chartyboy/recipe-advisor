@@ -1,3 +1,11 @@
+"""
+Collection of helper functions to dynamically instantiate LangChain chains.
+
+See Also
+--------
+LangChain Expression Language : https://python.langchain.com/docs/expression_language/
+"""
+
 from operator import itemgetter
 from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.output_parser import StrOutputParser

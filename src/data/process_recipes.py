@@ -1,3 +1,12 @@
+"""
+Implements data cleaning process for scraped recipe text data.
+
+Classes
+-------
+RecipeProcessor
+    Class with packaged methods to load and clean text data.
+"""
+
 import jq
 import json
 import re
@@ -305,7 +314,7 @@ class RecipeProcessor:
             recipe_df[["ingredients", "instructions"]] = recipe_df[
                 ["ingredients", "instructions"]
             ].map(
-                lambda x: ", ".join(x)
+                lambda x: "\n".join(x)
             )  # type: ignore
             recipe_df["step_instructions"] = recipe_df["step_instructions"].apply(
                 lambda x: "\n".join(x)

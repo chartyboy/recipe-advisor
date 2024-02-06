@@ -1,3 +1,28 @@
+"""
+Collection of LLM prompts pre-formatted and instatiated as LangChain templates.
+
+Template Constants
+------------------
+DEFAULT_DOCUMENT_PROMPT : str
+    LangChain text template to convert LangChain Documents into template strings
+
+beef_recipe : str
+    Example of a beef stroganoff recipe.
+
+mushroom_recipe : str
+    Example of a mushroom stroganoff recipe.
+
+modified_name_prompt : str
+    Prompt template for altering a recipe name based on provided recipe changes.
+
+cot_multi_prompt : str
+    Prompt template for incorporating chain-of-thought and retrieval-augmented 
+    generation prompt engineering.
+
+strip_name_prompt : str
+    Prompt template for finding the recipe name in a conversational response.
+"""
+
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 
 DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(template="{page_content}")

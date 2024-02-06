@@ -16,11 +16,11 @@ class StubChromaCollection:
 
     @staticmethod
     def get(*args, **kwargs):
-        return {"documents": [["Test"]]}
+        return {"ids": [["test-id"]], "documents": [["Test"]]}
 
     @staticmethod
     def query(*args, n_results=0, **kwargs):
-        return {"documents": [["Test"] * n_results]}
+        return {"ids": [["test-id"]] * n_results, "documents": [["Test"] * n_results]}
 
 
 class StubChromaClient:
@@ -54,6 +54,7 @@ class MockResponse:
     def __init__(self, json_content=dict(), status_code=200) -> None:
         self.json_content = json_content
         self.status_code = status_code
+        self.text = "mock text"
 
     def set_json_content(self, json_content):
         self.json_content = json_content

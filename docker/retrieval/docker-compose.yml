@@ -8,8 +8,8 @@ services:
       - proxy
     restart: no
     environment:
-      DOMAINS: 'retriever.com -> http://retriever:80'
-      STAGE: 'local' # Don't use production until staging works
+      DOMAINS: 'air-gear.net -> http://retriever:80'
+      STAGE: 'production' # Don't use production until staging works
       ERROR_LOG: default
       ACCESS_LOG: default
       # FORCE_RENEW: 'true'

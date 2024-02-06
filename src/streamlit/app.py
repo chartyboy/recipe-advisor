@@ -1,3 +1,7 @@
+"""
+Streamlit app for receiving user input.
+"""
+
 import streamlit as st
 import atexit
 import logging
@@ -6,14 +10,14 @@ import time
 import logging
 import sys
 import warnings
+import re
 
 warnings.filterwarnings("ignore")
 
 from datetime import datetime, timedelta
 
-# from langchain_community.llms import OpenAI
 from langchain_community.chat_models import ChatOpenAI as OpenAI
-from connections import ChromaConnection, BaseConnection
+from connections import ChromaConnection, BaseConnection, TestConnection
 
 from chain import initialize_LLM_chain
 
@@ -22,6 +26,9 @@ from chain import initialize_LLM_chain
 
 @st.cache_resource()
 def init_loggers():
+    """
+    Initialize Python loggers with specified formatting.
+    """
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
@@ -48,10 +55,16 @@ else:
 
 
 def days_offset_from_current_time(n_days=1) -> datetime:
+    """
+    Generate a datetime object n days from the current time.
+    """
     return datetime.utcnow() + timedelta(days=n_days)
 
 
 def update_expire_date(n_days: int = 1):
+    """
+    Update the API key expiration date.
+    """
     if "key" not in st.session_state:
         raise RuntimeError("API key not configured yet.")
 
@@ -68,6 +81,9 @@ def update_expire_date(n_days: int = 1):
 
 
 def validate_time(cached_data: dict) -> bool:
+    """
+    Checks if the currently stored API key has expired.
+    """
     expire_time = cached_data["expires"]
     if "key_expire_datetime" in st.session_state:
         if expire_time < st.session_state.key_expire_datetime:
@@ -82,12 +98,18 @@ def validate_time(cached_data: dict) -> bool:
 
 @st.cache_resource(ttl="1d", validate=validate_time)
 def get_key() -> dict:
+    """
+    Get a new key from the retriever API.
+    """
     new_key = st.session_state.chroma_connection.get_connection()
     expire_time = days_offset_from_current_time(n_days=1)
     return {"key": new_key, "expires": expire_time}
 
 
 def refresh_key(conn: BaseConnection) -> None:
+    """
+    Get a new key or renew an existing one from the API.
+    """
     if "key" not in st.session_state:
         key_data = get_key()
         st.session_state.key = key_data["key"]
@@ -101,6 +123,9 @@ def refresh_key(conn: BaseConnection) -> None:
 
 @st.cache_resource
 def init_retriever() -> BaseConnection:
+    """
+    Initializes the retriever API connection.
+    """
     logger.info("Creating new retriever connection")
     if TEST_ENV:
         # return TestConnection()
@@ -119,31 +144,39 @@ def init_retriever() -> BaseConnection:
 
 @st.cache_resource
 def init_llm():
+    """
+    Initializes LLM objects.
+    """
     import torch
     from langchain_community.llms import HuggingFacePipeline
     from transformers import pipeline
 
     if TEST_ENV:
-        # pipe = pipeline(
-        #     "text-generation",
-        #     model="GeneZC/MiniChat-2-3B",
-        #     torch_dtype=torch.bfloat16,
-        #     device_map="auto",
-        #     # max_new_tokens=512,
-        #     # do_sample=True,
-        #     # temperature=0.7,
-        #     # top_k=50,
-        #     # top_p=0.95,
-        #     # repetition_penalty=1.15
-        # )
-        # llm = HuggingFacePipeline(pipeline=pipe)
-        return OpenAI(model="gpt-3.5-turbo-1106", openai_api_key=OPENAI_API_KEY)
+        pipe = pipeline(
+            "text-generation",
+            model="GeneZC/MiniChat-2-3B",
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+            # max_new_tokens=512,
+            # do_sample=True,
+            # temperature=0.7,
+            # top_k=50,
+            # top_p=0.95,
+            # repetition_penalty=1.15
+        )
+        llm = HuggingFacePipeline(pipeline=pipe)
+        logger.info("Test env initialized")
+        return llm
+        # return OpenAI(model="gpt-3.5-turbo-1106", openai_api_key=OPENAI_API_KEY)
     else:
         return OpenAI(model="gpt-3.5-turbo-1106", openai_api_key=OPENAI_API_KEY)
 
 
 @st.cache_resource
 def register_shutdown_handler(_conn: BaseConnection, key):
+    """
+    Registers a function to revoke the API key on shutdown.
+    """
     logger.info("Registering shutdown handler")
     atexit.register(_conn.revoke_key, key=key)
     atexit.register(logger.info, "Running exit routine.")
@@ -151,14 +184,30 @@ def register_shutdown_handler(_conn: BaseConnection, key):
 
 @st.cache_data
 def query_llm(chain_inputs: dict, _docs):
+    """
+    Sends a query to the LLM and returns the response.
+    """
     llm_chain = initialize_LLM_chain(st.session_state.llm, _docs)
     return llm_chain.invoke(chain_inputs)
 
 
 @st.cache_data
-def query_retriever(query: str):
+def query_retriever(query: str, n_docs=1, collection_name="summed"):
+    """
+    Sends a query to the retriever API and returns the response.
+    """
     return st.session_state.chroma_connection.retrieve_documents(
-        st.session_state.key, query, n_docs=1
+        st.session_state.key, query, n_docs=n_docs, collection_name=collection_name
+    )
+
+
+@st.cache_data
+def get_by_ids_retriever(ids: list[str], collection_name="summed"):
+    """
+    Get documents by their database IDs from the retriever API.
+    """
+    return st.session_state.chroma_connection.get_documents(
+        st.session_state.key, ids, collection_name=collection_name
     )
 
 
@@ -166,6 +215,11 @@ st.session_state.chroma_connection = init_retriever()
 st.session_state.llm = init_llm()
 refresh_key(st.session_state.chroma_connection)
 register_shutdown_handler(st.session_state.chroma_connection, st.session_state.key)
+
+is_alive = st.session_state.chroma_connection.heartbeat()
+if not is_alive:
+    st.warning("Unable to connect to database server. Try again later.")
+    st.stop()
 
 
 # App consts
@@ -208,6 +262,9 @@ def gather_by_key(key_count, key_base) -> list[str]:
 
 
 def gather_inputs() -> dict[str, list[str] | str]:
+    """
+    Collect user inputs from text boxes.
+    """
     ingredients = gather_by_key("n_ingredient", ingredient_input_key)
     instructions = gather_by_key("n_instruction", instruction_input_key)
 
@@ -255,6 +312,9 @@ def gather_inputs() -> dict[str, list[str] | str]:
 
 
 def format_recipe(inputs: dict) -> dict[str, str]:
+    """
+    Formats user input into a recipe format.
+    """
     input_strings = list()
     recipe = dict()
     for key, value in inputs.items():
@@ -276,6 +336,9 @@ def format_recipe(inputs: dict) -> dict[str, str]:
 
 
 def format_customization(modifications: dict[str, str | list[str]]) -> str:
+    """
+    Formats the user requested modifications into a series of requests.
+    """
     format_strings = list()
     has_added_vegetarian = False
     has_added_keto = False
@@ -319,6 +382,49 @@ def format_customization(modifications: dict[str, str | list[str]]) -> str:
     return formatted_customization
 
 
+def find_recipes():
+    """
+    Query the retriever API to find recipe names similar to the user input.
+    """
+    query = st.session_state["name_input"]
+    retrieved_names = query_retriever(query, n_docs=5, collection_name="name")
+
+    if isinstance(retrieved_names, dict):
+        logger.info(f"{query},{retrieved_names}")
+    else:
+        logger.info(retrieved_names)
+
+    st.session_state.show_search_results = True
+    st.session_state.retrieved_names = retrieved_names
+    st.session_state.names_ids = {v: k for k, v in retrieved_names.items()}
+
+
+def get_recipe_data():
+    """
+    Get the recipe ingredients and instructions from a recipe's name and database ID.
+    """
+    recipe_name = st.session_state["select_recipe"]
+    id = st.session_state.names_ids[recipe_name]
+    st.session_state.ingredient = get_by_ids_retriever(
+        [id], collection_name="ingredient"
+    )
+    st.session_state.instruction = get_by_ids_retriever(
+        [id], collection_name="instruction"
+    )
+
+
+def reset_search_results():
+    st.session_state.show_search_results = False
+
+
+def reset_fill():
+    st.session_state.current_ingredient = [""]
+    st.session_state.current_instruction = [""]
+    st.session_state.n_ingredient = 1
+    st.session_state.n_instruction = 1
+    st.session_state.n_modification = 1
+
+
 # App layout
 st.title("Recipe Helper")
 st.write(
@@ -329,60 +435,134 @@ set_default_state("n_ingredient", 1)
 set_default_state("n_instruction", 1)
 set_default_state("n_modification", 1)
 set_default_state("modify_rows", list())
+set_default_state("show_search_results", False)
+set_default_state("retrieved_recipes", dict())
+set_default_state("ingredient", "")
+set_default_state("instruction", "")
+set_default_state("current_ingredient", [""])
+set_default_state("current_instruction", [""])
 
-st.text_input(
+name_cols = st.columns([3, 1])
+name_cols[0].text_input(
     label="Recipe Name",
     value="Recipe Name",
     key="name_input",
     label_visibility="collapsed",
+    on_change=reset_search_results,
 )
+name_cols[1].button("Find Recipe", on_click=find_recipes)
+if st.session_state.show_search_results:
+    with st.form(key="search"):
+        st.selectbox(
+            "Search Results",
+            key="select_recipe",
+            options=st.session_state.retrieved_names.values(),
+        )
+        submit = st.form_submit_button(label="Fill Recipe")
+        if submit:
+            get_recipe_data()
+            id = st.session_state.names_ids[st.session_state["select_recipe"]]
+            ingredient = st.session_state.ingredient[id].split("\n")
+            instruction = st.session_state.instruction[id].replace(".,", ".")
+            instruction = instruction.split("\n")
+
+            st.session_state.current_ingredient = ingredient
+            st.session_state.n_ingredient = len(ingredient)
+
+            st.session_state.current_instruction = instruction
+            st.session_state.n_instruction = len(instruction)
+
+            # for item in ingredient:
+            #     st.write(item)
+            # st.write("")
+            # for item in instruction:
+            #     st.write(item)
+
+opt_cols = st.columns([1, 1, 2])
+opt_cols[0].checkbox(label="Use multiline input", key="text_checkbox")
+opt_cols[1].button(label="Reset Recipe", on_click=reset_fill)
 
 with st.container():
     st.subheader("Ingredients")
-    for i in range(st.session_state.n_ingredient):
-        if i < st.session_state.n_ingredient - 1:
-            st.text_input(
-                label="Ingredient",
-                key="ingredient_input_" + str(i),
-                label_visibility="collapsed",
+    if st.session_state["text_checkbox"]:
+        st.text_area(
+            label="Ingredient",
+            value="\n".join(st.session_state.current_ingredient),
+            key=ingredient_input_key + str(1),
+            label_visibility="collapsed",
+        )
+    else:
+        for i in range(st.session_state.n_ingredient):
+
+            if i >= len(st.session_state.current_ingredient):
+                text_value = ""
+            else:
+                text_value = st.session_state.current_ingredient[i]
+
+            if i < st.session_state.n_ingredient - 1:
+                st.text_input(
+                    label="Ingredient",
+                    value=text_value,
+                    key="ingredient_input_" + str(i),
+                    label_visibility="collapsed",
+                )
+            else:
+                st.text_input(
+                    label="Ingredient",
+                    value=text_value,
+                    key="ingredient_input_" + str(i),
+                    label_visibility="collapsed",
+                    on_change=extend,
+                    args=("n_ingredient",),
+                )
+        if st.session_state.n_ingredient > 1:
+            st.button(
+                "Delete last ingredient", on_click=shorten, args=("n_ingredient",)
             )
-        else:
-            st.text_input(
-                label="Ingredient",
-                key="ingredient_input_" + str(i),
-                label_visibility="collapsed",
-                on_change=extend,
-                args=("n_ingredient",),
-            )
-    if st.session_state.n_ingredient > 1:
-        st.button("Delete last ingredient", on_click=shorten, args=("n_ingredient",))
 
 with st.container():
     st.subheader("Instructions")
     header = st.columns([1, 32])
-    for i in range(st.session_state.n_instruction):
-        header = st.columns([1, 16])
-        header[0].markdown(
-            '<span style="font-size:1.6em;">' + str(i + 1) + ". </span>",
-            unsafe_allow_html=True,
+    if st.session_state["text_checkbox"]:
+        st.text_area(
+            label="Ingredient",
+            value="\n".join(st.session_state.current_instruction),
+            key=instruction_input_key + str(1),
+            label_visibility="collapsed",
         )
+    else:
+        for i in range(st.session_state.n_instruction):
+            if i >= len(st.session_state.current_instruction):
+                text_value = ""
+            else:
+                text_value = st.session_state.current_instruction[i]
 
-        if i < st.session_state.n_instruction - 1:
-            header[1].text_input(
-                label="instructions",
-                key=instruction_input_key + str(i),
-                label_visibility="collapsed",
+            header = st.columns([1, 16])
+            header[0].markdown(
+                '<span style="font-size:1.6em;">' + str(i + 1) + ". </span>",
+                unsafe_allow_html=True,
             )
-        else:
-            header[1].text_input(
-                label="instructions",
-                key=instruction_input_key + str(i),
-                label_visibility="collapsed",
-                on_change=extend,
-                args=("n_instruction",),
+
+            if i < st.session_state.n_instruction - 1:
+                header[1].text_input(
+                    label="instructions",
+                    value=text_value,
+                    key=instruction_input_key + str(i),
+                    label_visibility="collapsed",
+                )
+            else:
+                header[1].text_input(
+                    label="instructions",
+                    value=text_value,
+                    key=instruction_input_key + str(i),
+                    label_visibility="collapsed",
+                    on_change=extend,
+                    args=("n_instruction",),
+                )
+        if st.session_state.n_instruction > 1:
+            st.button(
+                "Delete last instruction", on_click=shorten, args=("n_instruction",)
             )
-    if st.session_state.n_instruction > 1:
-        st.button("Delete last instruction", on_click=shorten, args=("n_instruction",))
 
 with st.container():
     st.session_state.modify_rows = list()
@@ -391,10 +571,10 @@ with st.container():
     modify = modify_row.columns(modify_col_widths)
     st.session_state.modify_rows.append(modify_row)
 
-    modify[0].write("Customization")
-    modify[1].write("")
-    modify[2].write("")
-    modify[3].write("")
+    # modify[0].write("Customization")
+    # modify[1].write("")
+    # modify[2].write("")
+    # modify[3].write("")
 
     for i in range(st.session_state.n_modification):
         modify_row = st.empty()
@@ -519,7 +699,7 @@ with st.container():
 
 st.divider()
 with st.form("Input", border=False):
-    submit = st.form_submit_button("Modify my Recipe!")
+    submit = st.form_submit_button("Modify my recipe!")
     if submit:
         with st.empty():
             st.write("Submitted!")
@@ -536,7 +716,8 @@ with st.form("Input", border=False):
                 gathered_inputs = format_recipe(recipe_input)
                 # logger.info(gathered_inputs)
 
-                docs = query_retriever(gathered_inputs["recipe"])
+                docs = list(query_retriever(gathered_inputs["recipe"]).values())
+                logger.info(docs)
             if isinstance(docs, list):
                 docs_content = "\n\n".join(docs)
                 with st.spinner("Asking the LLM..."):

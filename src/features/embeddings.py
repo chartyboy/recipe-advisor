@@ -1,6 +1,17 @@
-from langchain.embeddings import HuggingFaceBgeEmbeddings
-from langchain.document_loaders import JSONLoader
-from langchain.vectorstores import Chroma
+"""
+Module contains classes and methods for using the LangChain embeddings library to
+calculate and store text embeddings into a Chroma database.
+
+Classes
+-------
+RecipeEmbeddings
+    Class with packaged methods to load text data, calculate text embeddings, and
+    Chroma database management.
+"""
+
+from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+from langchain_community.document_loaders import JSONLoader
+from langchain_community.vectorstores import Chroma
 from sklearn.preprocessing import normalize
 from typing import Callable, List, Any, Iterable, Optional, Sequence
 from langchain.docstore.document import Document
@@ -105,6 +116,9 @@ class RecipeEmbeddings:
     reset: bool, default = False
         Boolean to reset Chroma database if one already exists.
 
+    shared_ids: bool, default = False
+        Boolean to sync ids across all created collections
+
     Methods
     -------
     load_jsonlines(self)
@@ -132,6 +146,7 @@ class RecipeEmbeddings:
     base_collections: List[str] = field(default_factory=default_base_collections)
     sources: Optional[List[str]] = None
     reset: Optional[bool] = False
+    shared_ids: Optional[bool] = False
 
     def __post_init__(self):
         self._load_embedding_model()
@@ -144,6 +159,26 @@ class RecipeEmbeddings:
         else:
             self.source_map = dict(zip(self.json_path, self.sources))
         self.load_jsonlines()
+
+        if self.shared_ids:
+            if self.reset:
+                self.ids = self._generate_ids()
+            else:
+                self.ids = self._get_keys()
+
+    def _generate_ids(self):
+        keys = list(self.document_corpus.keys())
+        return [str(uuid.uuid4()) for _ in self.document_corpus[keys[0]]]
+
+    def _get_keys(self):
+        collections = self.chroma_client.list_collections()
+        if collections:
+            coll_name = collections[0].name
+            collection_handle = self.chroma_client.get_collection(name=coll_name)
+            get_result = collection_handle.get()
+            return get_result["ids"]
+        else:
+            return self._generate_ids()
 
     def _load_embedding_model(self):
         self.embedding_function = EmbeddingFunctionInterface(
@@ -242,7 +277,7 @@ class RecipeEmbeddings:
             embeddings = self.embedding_model.embed_documents(document_contents)
 
             collection_handle = self.create_chroma_collection(
-                corpus_type, embeddings, document_contents
+                corpus_type, self.normalize_array(embeddings), document_contents
             )
             handles[corpus_type] = collection_handle
             self.embeddings[corpus_type] = embeddings
@@ -252,7 +287,7 @@ class RecipeEmbeddings:
         self,
         collection_name: str,
         embeddings: chromadb.Embeddings,
-        documents: List[Document],
+        documents: List[str],
     ) -> chromadb.Collection:
         """
         Calculates embeddings for a set of Document and insert into a Chroma database.
@@ -265,8 +300,8 @@ class RecipeEmbeddings:
         embeddings : List[chromadb.Embeddings]
             Array of vector embeddings.
 
-        documents: List[Document]
-            Array of text documents.
+        documents : List[str]
+            Array of text strings.
 
         Returns
         -------
@@ -284,14 +319,23 @@ class RecipeEmbeddings:
             for i in range(n_splits):
                 start = i * CHROMA_MAX_BATCH_SIZE
                 end = min(len(documents), (i + 1) * CHROMA_MAX_BATCH_SIZE)
-                ids = [str(uuid.uuid4()) for _ in documents[start:end]]
+
+                if self.shared_ids:
+                    ids = self.ids[start:end]
+                else:
+                    ids = [str(uuid.uuid4()) for _ in documents[start:end]]
+
                 collection_handle.add(
                     ids=ids,
                     embeddings=embeddings[start:end],
                     documents=documents[start:end],
                 )
         else:
-            ids = [str(uuid.uuid4()) for _ in documents]
+            if self.shared_ids:
+                ids = self.ids
+            else:
+                ids = [str(uuid.uuid4()) for _ in documents]
+
             collection_handle.add(
                 ids=ids,
                 embeddings=embeddings,

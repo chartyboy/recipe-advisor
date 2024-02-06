@@ -6,7 +6,7 @@ import sys
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from urllib.parse import urljoin, unquote_plus
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
 from pydantic import BaseModel
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 from typing import List, Dict, Any, Annotated
@@ -45,8 +45,8 @@ def connect_database():
 @lru_cache
 def load_retriever_model():
     logger.debug("Loading retriever model.")
-    model_name = "BAAI/bge-large-en"
-    # model_name = "BAAI/bge-small-en-v1.5"
+    # model_name = "BAAI/bge-large-en"
+    model_name = "BAAI/bge-small-en-v1.5"
     model_kwargs = {"device": "cpu"}
     encode_kwargs = {"normalize_embeddings": True}
     hf = HuggingFaceBgeEmbeddings(
@@ -56,7 +56,7 @@ def load_retriever_model():
         cache_folder=EMBED_MODEL_CACHE,
     )
     embed_func = EmbeddingFunctionInterface(hf.embed_documents)
-    logger.info("Successfully loaded retriever model.")
+    logger.info(f"Successfully loaded retriever model. Model name:{model_name}")
     return embed_func
 
 
@@ -96,6 +96,17 @@ class RetrieveRequest(BaseModel):
 class RetrieveResponse(BaseModel):
     input_query: str
     docs: List[str]
+    ids: List[str]
+
+
+class GetRequest(BaseModel):
+    ids: List[str]
+    collection_name: str
+
+
+class GetResponse(BaseModel):
+    ids: List[str]
+    docs: List[str]
 
 
 @app.get("/")
@@ -103,7 +114,7 @@ def homepage():
     return "RETRIEVER API HOMEPAGE"
 
 
-@app.get(
+@app.post(
     "/retrieve",
     response_model=RetrieveResponse,
     dependencies=[Depends(api_key_security)],
@@ -128,4 +139,32 @@ def retrieve(
         logger.debug(e)
         raise HTTPException(status_code=404, detail="Collection or items not found\n")
     docs = res["documents"][0]
-    return RetrieveResponse(input_query=input.query, docs=docs)
+    ids = res["ids"][0]
+    return RetrieveResponse(input_query=input.query, docs=docs, ids=ids)
+
+
+@app.post(
+    "/documents", response_model=GetResponse, dependencies=[Depends(api_key_security)]
+)
+def get_by_id(
+    ids: Annotated[list[str], Query()],
+    collection_name: Annotated[str, Query()],
+    database: Annotated[Any, Depends(initialize_database_and_retriever)],
+):
+    chroma_conn = database["conn"]
+    embed_func = database["retriever"]
+    # logger.debug(f"IDs:{input.ids}")
+    try:
+        collection_handle = chroma_conn.get_collection(
+            collection_name, embedding_function=embed_func
+        )
+        res = collection_handle.get(
+            ids=ids,
+            include=["documents"],
+        )
+        logger.debug(res)
+    except Exception as e:
+        logger.debug(e)
+        raise HTTPException(status_code=404, detail="Collection or items not found\n")
+    docs = res["documents"]
+    return GetResponse(ids=ids, docs=docs)

@@ -9,7 +9,7 @@ from typing import Callable
 
 from src.features import embeddings
 from src.features.interfaces import EmbeddingFunctionInterface
-from src.test.stub_classes import (
+from .stub_classes import (
     StubDocument,
     StubJSONLoader,
     StubChromaCollection,
@@ -136,10 +136,6 @@ class TestEmbeddings:
         for mag in np.linalg.norm(normalized_array, axis=1):
             assert np.isclose(1, mag)
         pass
-
-    # def test_create_loader(self):
-    #     # Should return a JSONLoader that conforms to Langchain's JSONLoader interface
-    #     pass
 
     def test_extract_page_content(self):
         # Should take a list of Document and return a list of strings from the Document's
