@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from langchain_community.chat_models import ChatOpenAI as OpenAI
 from connections import ChromaConnection, BaseConnection, TestConnection
 
-from chain import initialize_LLM_chain
+from chain import initialize_LLM_chain, naming_chain
 
 # logging.basicConfig(level=logging.INFO)
 
@@ -35,7 +35,7 @@ def init_loggers():
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.INFO)
 
-    formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+    formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s\n")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
@@ -192,13 +192,24 @@ def query_llm(chain_inputs: dict, _docs):
 
 
 @st.cache_data
-def query_retriever(query: str, n_docs=1, collection_name="summed"):
+def query_new_name(chain_inputs: dict):
+    name_chain = naming_chain(st.session_state.llm)
+    return name_chain.invoke(chain_inputs)
+
+
+@st.cache_data(ttl=timedelta(minutes=1))
+def query_retriever(query: str, n_docs=1, collection_name="summed") -> dict[str, str]:
     """
     Sends a query to the retriever API and returns the response.
     """
-    return st.session_state.chroma_connection.retrieve_documents(
+    result = st.session_state.chroma_connection.retrieve_documents(
         st.session_state.key, query, n_docs=n_docs, collection_name=collection_name
     )
+    if isinstance(result, dict):
+        return result
+    else:
+        logger.info(result)
+        return dict()
 
 
 @st.cache_data
@@ -302,9 +313,12 @@ def gather_inputs() -> dict[str, list[str] | str]:
                 modifications[modify_type] = list()
             modifications[modify_type].append(modify_input)
     formatted_modifications = format_customization(modifications)
-
+    if st.session_state.is_filled_recipe:
+        recipe_name = st.session_state["select_recipe"]
+    else:
+        recipe_name = st.session_state["name_input"]
     return {
-        "Recipe Name": [st.session_state["name_input"]],
+        "Recipe Name": [recipe_name],
         "Ingredients": ingredients,
         "Instructions": instructions,
         "Modifications": formatted_modifications,
@@ -327,9 +341,6 @@ def format_recipe(inputs: dict) -> dict[str, str]:
         input_strings.append(sub_string)
 
         recipe[key] = sub_string
-    #     logger.info(sub_input)
-    #     logger.info(sub_string)
-    # logger.info(input_strings)
     recipe["recipe"] = "\n\n".join(input_strings)
     # logger.info(recipe["recipe"])
     return recipe
@@ -388,15 +399,29 @@ def find_recipes():
     """
     query = st.session_state["name_input"]
     retrieved_names = query_retriever(query, n_docs=5, collection_name="name")
+    st.session_state.names_ids = dict()
 
     if isinstance(retrieved_names, dict):
         logger.info(f"{query},{retrieved_names}")
     else:
         logger.info(retrieved_names)
+        st.warning("Could not query the database. Try again later.")
+        return
 
     st.session_state.show_search_results = True
-    st.session_state.retrieved_names = retrieved_names
-    st.session_state.names_ids = {v: k for k, v in retrieved_names.items()}
+
+    # Need to account for duplicate names
+    names = dict()
+    st.session_state.is_duplicate = {id: False for id in retrieved_names.keys()}
+    for recipe_id, recipe_name in retrieved_names.items():
+        if recipe_name in names.keys():
+            old_name = recipe_name
+            recipe_name = recipe_name + " " + str(names[recipe_name])
+            names[old_name] += 1
+            st.session_state.is_duplicate[recipe_id] = True
+        else:
+            names[recipe_name] = 1
+        st.session_state.names_ids[recipe_name] = recipe_id
 
 
 def get_recipe_data():
@@ -423,6 +448,7 @@ def reset_fill():
     st.session_state.n_ingredient = 1
     st.session_state.n_instruction = 1
     st.session_state.n_modification = 1
+    st.session_state.is_filled_recipe = False
 
 
 # App layout
@@ -441,7 +467,9 @@ set_default_state("ingredient", "")
 set_default_state("instruction", "")
 set_default_state("current_ingredient", [""])
 set_default_state("current_instruction", [""])
+set_default_state("is_filled_recipe", False)
 
+st.subheader("Recipe Name")
 name_cols = st.columns([3, 1])
 name_cols[0].text_input(
     label="Recipe Name",
@@ -456,21 +484,31 @@ if st.session_state.show_search_results:
         st.selectbox(
             "Search Results",
             key="select_recipe",
-            options=st.session_state.retrieved_names.values(),
+            options=st.session_state.names_ids.keys(),
         )
         submit = st.form_submit_button(label="Fill Recipe")
         if submit:
             get_recipe_data()
+            st.session_state.is_filled_recipe = True
             id = st.session_state.names_ids[st.session_state["select_recipe"]]
             ingredient = st.session_state.ingredient[id].split("\n")
             instruction = st.session_state.instruction[id].replace(".,", ".")
             instruction = instruction.split("\n")
+
+            ingredient.append("")
+            instruction.append("")
 
             st.session_state.current_ingredient = ingredient
             st.session_state.n_ingredient = len(ingredient)
 
             st.session_state.current_instruction = instruction
             st.session_state.n_instruction = len(instruction)
+
+            recipe_id = st.session_state.names_ids[st.session_state["select_recipe"]]
+            # if st.session_state.is_duplicate[recipe_id]:
+            #     st.session_state["name_input"] = st.session_state["select_recipe"][:-2]
+            # else:
+            #     st.session_state["name_input"] = st.session_state["select_recipe"]
 
             # for item in ingredient:
             #     st.write(item)
@@ -715,18 +753,28 @@ with st.form("Input", border=False):
                 }
                 gathered_inputs = format_recipe(recipe_input)
                 # logger.info(gathered_inputs)
-
-                docs = list(query_retriever(gathered_inputs["recipe"]).values())
+                docs = list(
+                    query_retriever(gathered_inputs["recipe"], n_docs=2).values()
+                )
                 logger.info(docs)
             if isinstance(docs, list):
+                if len(docs) >= 1 and st.session_state.is_filled_recipe:
+                    docs = [docs[-1]]
+                else:
+                    docs = [docs[0]]
                 docs_content = "\n\n".join(docs)
+
                 with st.spinner("Asking the LLM..."):
-                    llm_chain = initialize_LLM_chain(st.session_state.llm, docs_content)
                     chain_inputs = {
                         "recipe_name": gathered_inputs["Recipe Name"],
                         "customization": gathered["Modifications"],
                         "user_recipe": gathered_inputs["recipe"],
                     }
+
+                    new_name = query_new_name(chain_inputs)
+                    logger.info(new_name)
+                    chain_inputs["new_name"] = new_name["new_name"]
+
                     result = query_llm(chain_inputs, docs_content)
                     llm_response = result["output"]
                     logger.info(result)
@@ -735,6 +783,4 @@ with st.form("Input", border=False):
                 llm_response = "Error in querying retriever API. Try again later."
 
             with st.expander(label="Result", expanded=True):
-                # st.write(gathered_inputs)
-                # st.write(docs)
                 st.write(llm_response)

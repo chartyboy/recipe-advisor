@@ -12,15 +12,19 @@ src.data.process_recipes
 """
 
 import os
+from dotenv import load_dotenv
 
 from src.features import embeddings
 from src.data import process_recipes
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 
+load_dotenv()
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME")
+
 
 def embed():
     # Create embedding database
-    model_name = "BAAI/bge-large-en"
+    model_name = EMBEDDING_MODEL_NAME
     # model_name = "BAAI/bge-small-en-v1.5"
     model_kwargs = {"device": "cuda"}
     encode_kwargs = {"normalize_embeddings": False}
@@ -29,7 +33,7 @@ def embed():
         model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
     )
     data_path = "./datasets/interim"
-    persist_path = "./datasets/processed/chroma_db"
+    persist_path = "./datasets/processed/chroma_db_test"
     sites = [
         "allrecipes_cleaned.jsonl",
         "epicurious_cleaned.jsonl",

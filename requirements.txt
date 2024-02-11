@@ -30,6 +30,7 @@ coloredlogs==15.0.1
 comm==0.1.4
 constantly==15.1.0
 contourpy==1.2.0
+coverage==7.4.1
 cryptography==41.0.5
 cssselect==1.2.0
 cycler==0.12.1
@@ -38,6 +39,7 @@ dataclasses-json==0.5.7
 datasets==2.14.6
 debugpy==1.8.0
 decorator==5.1.1
+dependency-injector==4.41.0
 Deprecated==1.2.14
 diffusers==0.24.0
 dill==0.3.7
@@ -51,6 +53,7 @@ executing==2.0.1
 fake-useragent==1.3.0
 Faker==20.0.3
 fastapi==0.104.1
+fastapi-simple-security==1.3.0
 filelock==3.13.1
 flatbuffers==23.5.26
 fonttools==4.45.1
@@ -69,6 +72,7 @@ h11==0.14.0
 httpcore==1.0.2
 httptools==0.6.1
 httpx==0.25.2
+httpx-sse==0.4.0
 huggingface-hub==0.20.1
 humanfriendly==10.0
 hyperlink==21.0.0
@@ -95,8 +99,11 @@ jupyter_client==8.6.0
 jupyter_core==5.5.0
 kiwisolver==1.4.5
 kubernetes==28.1.0
-langchain==0.0.334
-langsmith==0.0.63
+langchain==0.1.4
+langchain-community==0.0.16
+langchain-core==0.1.17
+langserve==0.0.39
+langsmith==0.0.84
 lsprotocol==2023.0.0
 lxml==4.9.3
 markdown-it-py==3.0.0
@@ -129,6 +136,7 @@ opentelemetry-proto==1.21.0
 opentelemetry-sdk==1.21.0
 opentelemetry-semantic-conventions==0.42b0
 optimum==1.14.0
+orjson==3.9.10
 overrides==7.4.0
 packaging==23.2
 pandas==2.1.2
@@ -166,6 +174,7 @@ PyPika==0.48.9
 PySocks==1.7.1
 pyspellchecker==0.7.2
 pytest==7.4.3
+pytest-cov==4.1.0
 pytest-mock==3.12.0
 pytest-stub==1.1.0
 pytest-subtests==0.11.0
@@ -209,9 +218,10 @@ sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.6
 sphinxcontrib-serializinghtml==1.1.9
 SQLAlchemy==2.0.23
+sse-starlette==1.8.2
 stack-data==0.6.2
 starlette==0.27.0
-streamlit==1.29.0
+streamlit==1.30.0
 stringcase==1.2.0
 sympy==1.12
 tenacity==8.2.3
@@ -252,3 +262,5 @@ xxhash==3.4.1
 yarl==1.9.2
 zipp==3.17.0
 zope.interface==6.1
+
+--extra-index-url=https://download.pytorch.org/whl/cpu

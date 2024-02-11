@@ -17,11 +17,6 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 
-# RETRIEVER_API_BASE = st.secrets["RETRIEVER_API_BASE"]
-# RETRIEVER_API_SECRET = st.secrets["RETRIEVER_API_SECRET"]
-# OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-
-
 class StubLLM:
     @staticmethod
     def query(*args, **kwargs):

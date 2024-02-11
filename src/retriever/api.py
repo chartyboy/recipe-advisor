@@ -2,6 +2,10 @@ import chromadb
 import os
 import logging
 import sys
+from dotenv import load_dotenv
+
+# For non-container deployment
+load_dotenv()
 
 from contextlib import asynccontextmanager
 from functools import lru_cache
@@ -14,15 +18,23 @@ from typing import List, Dict, Any, Annotated
 from fastapi_simple_security import api_key_router, api_key_security
 from src.features.interfaces import EmbeddingFunctionInterface
 
+# For non-container deployment
+load_dotenv()
+
 # Initialize env vars
 CHROMA_HOST_ADDRESS = os.getenv("CHROMA_HOST_ADDRESS")
 CHROMA_HOST_PORT = os.getenv("CHROMA_HOST_PORT")
+
 EMBED_MODEL_CACHE = os.getenv("EMBED_MODEL_CACHE")
+if str(EMBED_MODEL_CACHE).lower() == "false":
+    EMBED_MODEL_CACHE = None
+
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME")
 
 database = dict()
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 handler = logging.StreamHandler(sys.stdout)
 formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
@@ -45,8 +57,7 @@ def connect_database():
 @lru_cache
 def load_retriever_model():
     logger.debug("Loading retriever model.")
-    # model_name = "BAAI/bge-large-en"
-    model_name = "BAAI/bge-small-en-v1.5"
+    model_name = EMBEDDING_MODEL_NAME
     model_kwargs = {"device": "cpu"}
     encode_kwargs = {"normalize_embeddings": True}
     hf = HuggingFaceBgeEmbeddings(
@@ -76,7 +87,6 @@ async def lifespan(
 ):
     _ = connect_database()
     _ = load_retriever_model()
-
     logger.info("Event: Global variables initialized")
     yield
     logger.info("Event: API Shutdown")

@@ -32,7 +32,7 @@ def set_env():
     os.environ["EMBED_MODEL_CACHE"] = ""
     os.environ["FASTAPI_SIMPLE_SECURITY_SECRET"] = auth_secret
     os.environ["FASTAPI_SIMPLE_SECURITY_DB_LOCATION"] = "./sqlite.db"
-
+    os.environ["EMBEDDING_MODEL_NAME"] = "test-model"
     yield
     os.remove("./sqlite.db")
 
