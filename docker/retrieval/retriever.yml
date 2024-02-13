@@ -36,7 +36,7 @@ services:
 
       - type: volume
         source: api-keys-db  
-        target: ${FASTAPI_SIMPLE_SECURITY_DB_PATH}
+        target: ${FASTAPI_SIMPLE_SECURITY_DB_PATH-/}
     environment:
       - CHROMA_HOST_ADDRESS=database
       - CHROMA_HOST_PORT=8000

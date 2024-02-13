@@ -6,4 +6,5 @@ services:
       context: .
       dockerfile: streamlit.Dockerfile
     command:
-      ["streamlit", "run","--server.headless","true", "--server.address", "0.0.0.0", "--server.port", "8501"]
+      ["streamlit", "run","--server.headless","true", "--server.address", "0.0.0.0", "--server.port", "8501", "/src/streamlit/app.py"]
+      # sleep infinity

@@ -44,7 +44,16 @@ logger = init_loggers()
 
 RETRIEVER_API_BASE = st.secrets["RETRIEVER_API_BASE"]
 RETRIEVER_API_SECRET = st.secrets["RETRIEVER_API_SECRET"]
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+
+if "OPENAI_API_KEY" in st.secrets:
+    OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+else:
+    OPENAI_API_KEY = ""
+
+if "HUGGINGFACE_MODEL_PATH" in st.secrets:
+    HUGGINGFACE_MODEL_PATH = st.secrets["HUGGINGFACE_MODEL_PATH"]
+else:
+    HUGGINGFACE_MODEL_PATH = ""
 
 if "TEST_ENV" in st.secrets:
     TEST_ENV = True
@@ -185,10 +194,11 @@ def init_llm():
     from langchain_community.llms import HuggingFacePipeline
     from transformers import pipeline
 
-    if TEST_ENV:
+    if HUGGINGFACE_MODEL_PATH != "":
         pipe = pipeline(
             "text-generation",
-            model="GeneZC/MiniChat-2-3B",
+            # model="GeneZC/MiniChat-2-3B",
+            model=HUGGINGFACE_MODEL_PATH,
             torch_dtype=torch.bfloat16,
             device_map="auto",
             # max_new_tokens=512,
