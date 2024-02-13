@@ -38,7 +38,7 @@ Download the embeddings model according to the type of embeddings downloaded abo
 #### Installing Required Packages
 From the root repo directory,
 ```
-pip install --ignore-requires-python -r requirements.txt
+pip install -r requirements.txt
 ``` 
 This installs all the packages
 necessary for development on this repo. Other ```requirements.txt``` files, such as those located in

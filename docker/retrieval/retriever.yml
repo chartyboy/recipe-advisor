@@ -6,7 +6,7 @@ services:
       - '443:443'
     networks:
       - proxy
-    restart: no
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -21,6 +21,9 @@ services:
     build:
       context: .
       dockerfile: retriever_prod.Dockerfile
+    restart: on-failure:3
+    depends_on:
+      - database
     networks:
       - db
       - proxy
@@ -59,6 +62,7 @@ services:
     build:
       context: .
       dockerfile: chroma.Dockerfile
+    restart: on-failure:3
     networks:
       - db
     volumes:

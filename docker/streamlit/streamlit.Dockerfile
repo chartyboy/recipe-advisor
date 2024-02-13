@@ -19,8 +19,4 @@ ENV PYTHONPATH = /usr/local:${PYTHONPATH}
 COPY --link --from=builder /install /usr/local
 COPY --link --from=builder /repo/src /src
 
-WORKDIR /src
-RUN mkdir ./streamlit/.streamlit
-
 COPY secrets.toml /.streamlit/secrets.toml
-WORKDIR /
