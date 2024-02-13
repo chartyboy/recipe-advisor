@@ -12,7 +12,7 @@ import json
 import re
 import pandas as pd
 from dataclasses import dataclass
-from typing import List, Dict, Any, Collection, Iterable, Generator, Optional
+from typing import List, Dict, Any, Collection, Iterable, Generator, Optional, Sequence
 
 
 @dataclass
@@ -95,9 +95,12 @@ class RecipeProcessor:
                 else:
                     df = pd.DataFrame(content)
             else:
-                raise ValueError(f"Content is of invalid type, got {type(content[0])}")
-        else:
-            df = pd.DataFrame(content)
+                raise TypeError(f"Content is of invalid type, got {type(content[0])}")
+        else:  # empty object
+            if isinstance(content, dict) or isinstance(content, list):
+                df = pd.DataFrame(content)
+            else:  # not a dict or list
+                raise TypeError(f"Content is of invalid type, got {type(content[0])}")
         return df
 
     def df_to_jsonlines(self, out_path: str, df: pd.DataFrame) -> None:

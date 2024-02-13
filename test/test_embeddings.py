@@ -23,36 +23,7 @@ class EmbeddingsTestObject(embeddings.RecipeEmbeddings):
         return
 
 
-# class StubDocument:
-#     def __init__(self) -> None:
-#         self.page_content = "TEST"
-
-
-# class StubJSONLoader:
-#     @staticmethod
-#     def load(*args, **kwargs):
-#         return [StubDocument()]
-
-
-# class StubChromaCollection:
-#     @staticmethod
-#     def add(*args, **kwargs):
-#         pass
-
-#     @staticmethod
-#     def get(*args, **kwargs):
-#         pass
-
-
-# class StubChromaClient:
-#     @staticmethod
-#     def get_or_create_collection(*args, **kwargs):
-#         return StubChromaCollection()
-
-#     def get_collection(*args, **kwargs):
-#         return StubChromaCollection()
-
-
+# Stub function for stubbing EmbeddingFunctionInterface
 @pytest.fixture
 def function_to_wrap():
     def to_wrap(*args, **kwargs):
@@ -104,12 +75,6 @@ class TestEmbeddingsHelpers:
         assert isinstance(returned_metadata, dict)
         assert "website" in returned_metadata.keys()
 
-    # def test_EmbeddingFunctionInterface(self, function_to_wrap):
-    #     chromadb
-    #     # Should pass Chroma's EmbeddingFunction input validation checks
-    #     # Calling the function should require a list of Document and return a list of vectors
-    #     pass
-
 
 class TestEmbeddings:
     @pytest.mark.parametrize(
@@ -142,7 +107,7 @@ class TestEmbeddings:
         # page_content attribute
         num_docs = 5
         documents = [StubDocument() for i in range(num_docs)]
-        texts = embeddings.RecipeEmbeddings.extract_page_content(documents)
+        texts = embeddings.RecipeEmbeddings.extract_page_content(documents)  # type: ignore
 
         assert isinstance(texts, list)
         assert isinstance(texts[0], str)
@@ -173,7 +138,7 @@ class TestEmbeddings:
         embeddings_instance.reset = False
         # Should take a path and return a chroma client handle
         embeddings_instance.initialize_chroma()
-        assert isinstance(embeddings_instance.chroma_client, chromadb.api.client.Client)
+        assert isinstance(embeddings_instance.chroma_client, chromadb.api.client.Client)  # type: ignore
 
     def test_reset_chroma(self, embeddings_instance, dir_to_delete):
         embeddings_instance.persist_path = dir_to_delete
@@ -183,7 +148,13 @@ class TestEmbeddings:
         assert not os.path.exists(dir_to_delete)
         pass
 
-    def test_create_chroma_collection(self, embeddings_instance, function_to_wrap):
+    @pytest.mark.parametrize(
+        "shared_ids",
+        [True, False],
+    )
+    def test_create_chroma_collection(
+        self, embeddings_instance, function_to_wrap, shared_ids
+    ):
         exceeds_max_batch_size = 50000
         under_max_batch_size = 2
         collection_name = "test"
@@ -192,68 +163,30 @@ class TestEmbeddings:
         small_documents = ["a"] * under_max_batch_size
         small_embeddings = [0] * under_max_batch_size
 
+        embeddings_instance.shared_ids = shared_ids
+
         # Should create and return a single chroma collection handle
         # Should be able to handle creating collections with sizes larger than
         # CHROMA_MAX_BATCH_SIZE = 41666
         embeddings_instance.embedding_function = EmbeddingFunctionInterface(
             function_to_wrap
         )
+        embeddings_instance.ids = [str(i) for i in range(len(small_documents))]
         returned_collection = embeddings_instance.create_chroma_collection(
             collection_name, small_embeddings, small_documents
         )
 
         assert isinstance(returned_collection, StubChromaCollection)
+        assert len(small_documents) == returned_collection.n_elements
+        collection_ids = sorted(returned_collection.database["ids"])
+        if shared_ids:
+            assert embeddings_instance.ids == collection_ids
+        else:
+            assert embeddings_instance.ids != collection_ids
 
+        embeddings_instance.ids = [str(i) for i in range(len(large_documents))]
         returned_collection = embeddings_instance.create_chroma_collection(
             collection_name, large_embeddings, large_documents
         )
         assert isinstance(returned_collection, StubChromaCollection)
-
-    # def test_create_collections(self):
-    #     def mock_create_chroma_collection():
-    #         return StubChromaCollection()
-
-    #     def mock_extract_page_content():
-    #         return ["a", "b", "c"]
-
-    #     # Should return a list of chroma collection handles, as a side effect, create missing collections
-    #     pass
-
-    # def test_create_summed_collection(self):
-    #     # Should take a list of collection names and return a single collection handle
-    #     # Should sum and normalize embeddings from multiple collections
-    #     # Should call get_embeddings when embeddings are not loaded into instance state
-    #     # Should use another arbitrary set of documents when inserting into new collection
-    #     pass
-
-    # def test_get_embeddings(self, embeddings_instance, monkeypatch):
-    #     class ExtendedStubCollection(StubChromaCollection):
-    #         def __init__(self, return_empty) -> None:
-    #             self.return_empty = return_empty
-
-    #         def get(self):
-    #             if self.return_empty:
-    #                 return []
-    #             else:
-    #                 return {"documents": StubDocument()}
-
-    #     def mock_get_collection(name):
-    #         if name == "test":
-    #             return ExtendedStubCollection(True)
-    #         else:
-    #             return ExtendedStubCollection(False)
-
-    #     embeddings_instance.chroma_client = StubChromaClient()
-    #     monkeypatch.setattr(
-    #         embeddings_instance.chroma_client, "get_collection", mock_get_collection
-    #     )
-
-    #     # Get embeddings from collection that exists
-    #     retrieved = embeddings_instance.get_embeddings("test")
-    #     assert isinstance(retrieved, dict)
-
-    #     with pytest.raises(ValueError):
-    #         embeddings_instance.get_embeddings("does_not_exist")
-    #     # Should retrieve documents from a chroma collection from the instance's chroma client
-    #     # Should raise an error if collection is missing
-    #     pass
+        assert len(large_documents) == returned_collection.n_elements

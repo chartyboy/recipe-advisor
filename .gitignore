@@ -17,9 +17,15 @@ Thumbs.db
 */.ipynb_checkpoints/*
 query_chroma.ipynb
 test*.ipynb
+
 # VSCode
 .vscode/*
 .vscode
+
+# Docker dev
+retriever_dev.yml
+retriever_base.Dockerfile
+
 # Chroma database files
 **/chroma_db*
 *.sqlite3

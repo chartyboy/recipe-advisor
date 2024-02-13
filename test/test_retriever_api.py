@@ -70,7 +70,7 @@ async def override_database():
 
 
 async def override_retriever():
-    embed_func = EmbeddingFunctionInterface(stub_embed_func)
+    embed_func = EmbeddingFunctionInterface(stub_embed_func)  # type:ignore
     return embed_func
 
 
@@ -116,8 +116,35 @@ class TestRetrieveEndpoint:
 
         app.dependency_overrides[connect_database] = override_error_database
         response = client.post("/retrieve", params=query_params)
-        assert response.status_code == 404
         app.dependency_overrides[connect_database] = override_database
+
+        assert response.status_code == 404
+
+    def test_get_by_id(self):
+        expected_number_of_documents = 4
+        document_ids = ["test-id"] * expected_number_of_documents
+        get_params = {"ids": document_ids, "collection_name": "test"}
+
+        response = client.post("/documents", params=get_params)
+        content = response.json()
+
+        assert len(content["ids"]) == len(content["docs"])
+        assert len(content["docs"]) == expected_number_of_documents
+
+    def test_get_nonexistent_collection_error(self):
+        async def override_error_database():
+            return StubErrorChromaClient()
+
+        number_of_documents = 4
+        document_ids = ["test-id"] * number_of_documents
+        get_params = {"ids": document_ids, "collection_name": "test"}
+
+        app.dependency_overrides[connect_database] = override_error_database
+
+        response = client.post("/documents", params=get_params)
+        app.dependency_overrides[connect_database] = override_database
+
+        assert response.status_code == 404
 
 
 class TestAuthSchema:

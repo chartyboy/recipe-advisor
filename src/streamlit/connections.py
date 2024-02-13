@@ -155,8 +155,8 @@ class ChromaConnection(BaseConnection):
     # Will only be called on shutdown
     def revoke_key(self, key: str) -> int:
         """
-        Submits a request using the client secret and a API key to invalidate the
-        API key. This key will be unable to authenticate requests unless renewed.
+        Submits a request to invalidate an API key. This key will be unable
+        to authenticate requests unless renewed.
 
         Parameters
         ----------

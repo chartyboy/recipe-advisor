@@ -1,3 +1,7 @@
+"""
+Retriever API implemented using FastAPI and Chroma.
+"""
+
 import chromadb
 import os
 import logging
@@ -17,9 +21,6 @@ from typing import List, Dict, Any, Annotated
 
 from fastapi_simple_security import api_key_router, api_key_security
 from src.features.interfaces import EmbeddingFunctionInterface
-
-# For non-container deployment
-load_dotenv()
 
 # Initialize env vars
 CHROMA_HOST_ADDRESS = os.getenv("CHROMA_HOST_ADDRESS")
@@ -47,7 +48,7 @@ logger.addHandler(handler)
 def connect_database():
     # Connect to db
     logger.debug("Connecting to database.")
-    chroma_conn = chromadb.HttpClient(host=CHROMA_HOST_ADDRESS, port=CHROMA_HOST_PORT)
+    chroma_conn = chromadb.HttpClient(host=CHROMA_HOST_ADDRESS, port=CHROMA_HOST_PORT)  # type: ignore
 
     logger.info("Successful database connection.")
     logger.debug(chroma_conn.list_collections())
@@ -66,7 +67,7 @@ def load_retriever_model():
         encode_kwargs=encode_kwargs,
         cache_folder=EMBED_MODEL_CACHE,
     )
-    embed_func = EmbeddingFunctionInterface(hf.embed_documents)
+    embed_func = EmbeddingFunctionInterface(hf.embed_documents)  # type: ignore
     logger.info(f"Successfully loaded retriever model. Model name:{model_name}")
     return embed_func
 
@@ -133,6 +134,18 @@ def retrieve(
     input: Annotated[RetrieveRequest, Depends(RetrieveRequest)],
     database: Annotated[Any, Depends(initialize_database_and_retriever)],
 ):
+    """
+    Endpoint for making retrieval queries to the Chroma database. Requires authentication.
+    Parameters
+    ----------
+    input: RetrieveRequest
+        Map includes the query, the collection to query, and the number of documents
+        to return.
+
+    Returns
+    -------
+    RetrieveResponse(input_query: str, docs: List[str], ids: List[str])
+    """
     chroma_conn = database["conn"]
     embed_func = database["retriever"]
     try:
@@ -161,6 +174,22 @@ def get_by_id(
     collection_name: Annotated[str, Query()],
     database: Annotated[Any, Depends(initialize_database_and_retriever)],
 ):
+    """
+    Endpoint for getting recipes and embeddings using unique database IDs.
+    Requires authentication.
+
+    Parameters
+    ----------
+    ids : List[str]
+        List of document ids to retrieve.
+
+    collection_name : str
+        Name of the Chroma database collection.
+
+    Returns
+    -------
+    GetResponse(ids: List[str], docs: List[str])
+    """
     chroma_conn = database["conn"]
     embed_func = database["retriever"]
     # logger.debug(f"IDs:{input.ids}")

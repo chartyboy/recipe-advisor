@@ -7,11 +7,21 @@
 [Credits](#credits)
 
 ## Features
-WIP
+##### REST API with Chroma for Document Retrieval
++ Chroma database for storing text embeddings
++ REST API with transformer LLMs for document retrieval
++ HTTPS support
++ API key auth
+
+##### Streamlit App UI
++ Collects user input and makes requests to the document retrieval API
++ Queries locally-run LLMs or third-party LLM APIs to create user-requested recipes
+
+
 ## Get Started
 ```git clone https://github.com/chartyboy/recipe-advisor.git```
 ### Text Embeddings
-Download the vector database with precomputed embeddings or create a Chroma database with your
+Download the Chroma vector database with precomputed embeddings or create a Chroma database with your
 own embeddings from the raw text files.  
 + [Embeddings for BAAI/bge-small-en-v1.5](https://drive.google.com/drive/folders/12zdpaWa2vwjLVAEVsXTAix0xNpy0_dfL?usp=sharing)  
 + [Embeddings for BAAI/bge-large-en](https://drive.google.com/drive/folders/1Jkwr81F1z5nJ2FxIY72gv9wdQoBn9PpB?usp=sharing)  
@@ -31,8 +41,8 @@ pip install -r requirements.txt
 This installs all the packages
 necessary for development on this repo. Other ```requirements.txt``` files, such as those located in
 ```docker/retrieval``` or ```src/streamlit``` are minimal package lists for running the respective app.
-The CPU-only version of ```pytorch``` is installed by default. To enable the usage of GPUs when running pytorch models,
-follow the GPU installation instructions on [the pytorch website](https://pytorch.org/).
+The CPU-only version of ```pytorch``` is installed by default. To enable the usage of CUDA when running pytorch models,
+follow  [pytorch's CUDA installation insructions](https://pytorch.org/).
 
 ## Deployment 
 ### Docker (Recommended)
@@ -90,6 +100,9 @@ chroma run --path <path-to-database> --host localhost  --port 8000
 This launches a Chroma server instance at localhost:8000.
 
 #### Streamlit App
+Try the app out on the [Streamlit Community Cloud](https://recipe-advisor-hkdqtdh9jhyqmcmqjdckvr.streamlit.app/).
+
+##### Running the Streamlit App Locally
 From the root project directory,
 ```
 cd src/streamlit

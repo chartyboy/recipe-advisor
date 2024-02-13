@@ -11,7 +11,7 @@ services:
       - .env
     environment:
       DOMAINS: '${RETRIEVER_DOMAIN_NAME} -> http://retriever:80'
-      STAGE: 'staging' # Don't use production until staging works
+      STAGE: 'production' # Don't use production until staging works
       ERROR_LOG: default
       ACCESS_LOG: default
       # FORCE_RENEW: 'true'

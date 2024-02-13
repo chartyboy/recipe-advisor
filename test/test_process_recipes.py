@@ -58,6 +58,19 @@ class TestRecipeProcessor:
         assert list(df.columns) == columns
         assert df.shape[0] == len(content)
 
+    def test_to_pandas_empty_column_name_list(self):
+        content = [["abc", "b", "c"], ["e", "f", "g"]]
+        columns = []
+
+        df = self.test_rp.to_pandas(content, columns)  # type: ignore
+
+        assert df.shape[0] == len(content)
+
+    @pytest.mark.parametrize("content", [set(), set("test")])
+    def test_to_pandas_raises_on_invalid_type(self, content):
+        with pytest.raises(TypeError):
+            df = self.test_rp.to_pandas(content=content)  # type: ignore
+
     def test_df_to_jsonlines(self, tmp_path_factory, data_formats):
         # Should take path to output file and write contents of pandas Dataframe
         # in JSONLines format
@@ -86,6 +99,13 @@ class TestRecipeProcessor:
         first_list = nested_list_of_strings[0]
         first_condensed = condensed[0]
         assert len(first_list) == len(first_condensed.split(sep))
+
+    def test_condense_lists_excepts_TypeError_to_None(self):
+        condensed = self.test_rp.condense_lists(
+            [["test", None], None], sep="test"  # type:ignore
+        )
+        assert condensed[0] is None
+        assert condensed[1] is None
 
     def test_replace_iteratively(self, nested_list_of_strings):
         sep = "<SEP>"
@@ -134,7 +154,7 @@ class TestRecipeProcessor:
         expected_result = ""
         none_result = self.test_rp.condense_and_pad(
             nested_list_of_strings[0],
-            [None] * len(nested_list_of_strings[0]),
+            [None] * len(nested_list_of_strings[0]),  # type: ignore
             sep=sep,
             pad_sep=pad_sep,
         )

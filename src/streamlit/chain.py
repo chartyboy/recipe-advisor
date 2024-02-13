@@ -39,6 +39,9 @@ def initialize_retriever_chain():
 
 
 def naming_chain(LLM_model):
+    """
+    Creates a LCEL chain for creating new recipe names from user-requestd changes.
+    """
     output_parser = StrOutputParser()
     generate_new_name = {
         "new_name": {"resp": modified_name_prompt | LLM_model | output_parser}
@@ -50,17 +53,13 @@ def naming_chain(LLM_model):
     return RunnablePassthrough() | generate_new_name
 
 
-def initialize_LLM_chain(LLM_model, retrieved_docs):
-    # RAG + COT
+def initialize_LLM_chain(LLM_model, retrieved_docs: str):
+    """
+    Creates a LCEL chain for creating new recipes from user-requestd changes.
+    """
     output_parser = StrOutputParser()
     # retriever_branch = itemgetter("new_name") | retrieved_docs | combine_documents
-    # generate_new_name = {
-    #     "new_name": {"resp": modified_name_prompt | LLM_model | output_parser}
-    #     | strip_name_prompt
-    #     | LLM_model
-    #     | output_parser,
-    #     "inputs": RunnablePassthrough(),
-    # }
+
     prompt_inputs = {
         "inputs": lambda x: x["inputs"]
         | {"new_name": x["new_name"], "retrieved_recipes": x["retrieved"]}

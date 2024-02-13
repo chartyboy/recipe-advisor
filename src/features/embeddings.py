@@ -25,11 +25,6 @@ import os
 import shutil
 
 
-def allrecipes_metadata(record: dict, metadata: dict) -> dict[str, str]:
-    metadata["website"] = r"https://www.allrecipes.com/"
-    return metadata
-
-
 def metadata_factory(source_website: str) -> Callable[[dict, dict], dict]:
     """
     Factory to customize Langchain metadata function.
@@ -56,34 +51,6 @@ def metadata_factory(source_website: str) -> Callable[[dict, dict], dict]:
         return metadata
 
     return website_metadata
-
-
-# Wrapper class for Chroma to pass validation checks with Langchain embedding interfaces
-# class EmbeddingFunctionInterface(chromadb.EmbeddingFunction):
-#     """
-#     Wrapper class to allow Langchain embedding interfaces to pass Chroma validation checks.
-
-#     Attributes
-#     ----------
-#     embedding_function : Callable[[List[str]], chromadb.Embeddings]
-#         Function with single input argument of list of strings
-
-#     See Also
-#     --------
-#     Chroma EmbeddingFunction_
-
-#     .. _EmbeddingFunction: https://docs.trychroma.com/embeddings
-
-#     """
-
-#     def __init__(
-#         self, embedding_function: Callable[[List[str]], chromadb.Embeddings]
-#     ) -> None:
-#         super().__init__()
-#         self.embedding_function = embedding_function
-
-#     def __call__(self, input: List[str]) -> chromadb.Embeddings:
-#         return self.embedding_function(input)
 
 
 def default_base_collections():
@@ -162,15 +129,15 @@ class RecipeEmbeddings:
 
         if self.shared_ids:
             if self.reset:
-                self.ids = self._generate_ids()
+                self.ids = self.generate_ids()
             else:
-                self.ids = self._get_keys()
+                self.ids = self.get_keys()
 
-    def _generate_ids(self):
+    def generate_ids(self) -> List[str]:
         keys = list(self.document_corpus.keys())
         return [str(uuid.uuid4()) for _ in self.document_corpus[keys[0]]]
 
-    def _get_keys(self):
+    def get_keys(self) -> List[str]:
         collections = self.chroma_client.list_collections()
         if collections:
             coll_name = collections[0].name
@@ -178,7 +145,7 @@ class RecipeEmbeddings:
             get_result = collection_handle.get()
             return get_result["ids"]
         else:
-            return self._generate_ids()
+            return self.generate_ids()
 
     def _load_embedding_model(self):
         self.embedding_function = EmbeddingFunctionInterface(
@@ -277,7 +244,7 @@ class RecipeEmbeddings:
             embeddings = self.embedding_model.embed_documents(document_contents)
 
             collection_handle = self.create_chroma_collection(
-                corpus_type, self.normalize_array(embeddings), document_contents
+                corpus_type, self.normalize_array(embeddings), document_contents  # type: ignore
             )
             handles[corpus_type] = collection_handle
             self.embeddings[corpus_type] = embeddings
@@ -376,13 +343,13 @@ class RecipeEmbeddings:
             if key not in self.embeddings.keys():
                 stored_collection = self.get_embeddings(key)
                 pass
-                self.embeddings[key] = stored_collection["embeddings"]
+                self.embeddings[key] = stored_collection["embeddings"]  # type: ignore
         vectors_to_add = [self.embeddings[key] for key in corpus_keys]
         summed_embeddings = self.sum_vertically(vectors_to_add)
         normalized_and_summed = self.normalize_array(summed_embeddings)
         collection_handle = self.create_chroma_collection(
             collection_name,
-            normalized_and_summed,
+            normalized_and_summed,  # type: ignore
             self.extract_page_content(self.document_corpus[corpus_type]),
         )
         return collection_handle
@@ -423,7 +390,7 @@ class RecipeEmbeddings:
         """
 
         summed_embeddings = np.sum(
-            embeddings,
+            embeddings,  # type: ignore
             axis=0,
         )  # type: ignore
         return summed_embeddings
@@ -490,34 +457,3 @@ class RecipeEmbeddings:
         """
         res = [doc.page_content for doc in documents]
         return res
-
-
-# if __name__ == "__main__":
-#     model_name = "BAAI/bge-large-en"
-#     model_kwargs = {"device": "cuda"}
-#     encode_kwargs = {"normalize_embeddings": False}
-
-#     hf = HuggingFaceBgeEmbeddings(
-#         model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
-#     )
-#     data_path = "./datasets/interim"
-#     persist_path = "./chroma_db_allrecipes"
-#     # sites = ["allrecipes.jl", "epicurious.jl", "foodnetwork.jl", "tasty.jl"]
-#     # sources = ["allrecipes.com", "epicurious.com", "foodnetwork.com", "tasty.co"]
-#     sites = ["allrecipes_cleaned.jsonl"]
-#     sources = ["allrecipes.com"]
-#     json_path = [os.path.join(data_path, website) for website in sites]
-#     source_map = dict(zip(json_path, sources))
-#     # base_collections = ["name", "ingredient", "instruction"]
-#     base_collections = ["name", "ingredient", "instruction"]
-#     recipe_embed = RecipeEmbeddings(
-#         json_path=json_path,
-#         embedding_model=hf,
-#         persist_path=persist_path,
-#         base_collections=base_collections,
-#         reset=False,
-#     )
-#     _ = recipe_embed.process()
-#     _ = recipe_embed.create_summed_collection(["name", "ingredient", "instruction"])
-
-#     print("Finished")

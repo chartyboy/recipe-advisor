@@ -10,16 +10,18 @@ class StubJSONLoader:
 
 
 class StubChromaCollection:
-    @staticmethod
-    def add(*args, **kwargs):
-        pass
+    def __init__(self) -> None:
+        self.n_elements = 0
 
-    @staticmethod
-    def get(*args, **kwargs):
-        return {"ids": [["test-id"]], "documents": [["Test"]]}
+    def add(self, *args, **kwargs):
+        self.database = kwargs
+        if "ids" in kwargs.keys():
+            self.n_elements += len(kwargs["ids"])
 
-    @staticmethod
-    def query(*args, n_results=0, **kwargs):
+    def get(self, ids: list[str], *args, **kwargs):
+        return {"ids": [ids], "documents": ["Test"] * len(ids)}
+
+    def query(self, *args, n_results=0, **kwargs):
         return {"ids": [["test-id"]] * n_results, "documents": [["Test"] * n_results]}
 
 

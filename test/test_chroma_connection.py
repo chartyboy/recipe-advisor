@@ -60,6 +60,36 @@ class TestChromaConnection:
 
         assert isinstance(key, str)
 
+    def test_get_connection_fail(
+        self, chroma_instance: connections.ChromaConnection, mock_response
+    ):
+        error_api_response = ""
+        error_status_code = 400
+        mock_response(error_api_response, error_status_code, "get")
+        key = chroma_instance.get_connection()
+
+        assert key is None
+
+    def test_renew_key(
+        self, chroma_instance: connections.ChromaConnection, mock_response
+    ):
+        expected_status_code = 200
+        mock_response(status_code=expected_status_code, method="get")
+        response_code = chroma_instance.renew_key("test-key")
+
+        assert isinstance(response_code, int)
+        assert response_code == expected_status_code
+
+    def test_revoke_key(
+        self, chroma_instance: connections.ChromaConnection, mock_response
+    ):
+        expected_status_code = 200
+        mock_response(status_code=expected_status_code, method="get")
+        response_code = chroma_instance.revoke_key("test-key")
+
+        assert isinstance(response_code, int)
+        assert response_code == expected_status_code
+
     def test_retrieve_documents_dict_on_success(
         self, chroma_instance: connections.ChromaConnection, mock_response
     ):
@@ -72,7 +102,9 @@ class TestChromaConnection:
         expected_post_response = {"ids": ["test-id"], "docs": [["test_doc"]]}
         expected_status_code = 200
         mock_response(expected_post_response, expected_status_code, "post")
-        result = chroma_instance.retrieve_documents(key, query=test_query)
+        result = chroma_instance.retrieve_documents(
+            key, query=test_query  # type:ignore
+        )
 
         assert isinstance(result, dict)
 
@@ -88,7 +120,9 @@ class TestChromaConnection:
         fail_post_response = {"fail": "fail"}
         generic_fail_code = 400
         mock_response(fail_post_response, generic_fail_code, "post")
-        result = chroma_instance.retrieve_documents(key, query=test_query)
+        result = chroma_instance.retrieve_documents(
+            key, query=test_query  # type:ignore
+        )
 
         assert isinstance(result, int)
 
@@ -103,72 +137,13 @@ class TestChromaConnection:
         test_id = ["test-id"]
         expected_post_response = {"ids": ["test-id"], "docs": [["test_doc"]]}
         mock_response(expected_post_response, expected_status_code, "post")
-        result = chroma_instance.get_documents(key, ids=test_id)
+        result = chroma_instance.get_documents(key, ids=test_id)  # type:ignore
 
         assert isinstance(result, dict)
 
         fail_post_response = {"fail": "fail"}
         generic_fail_code = 400
         mock_response(fail_post_response, generic_fail_code, "post")
-        result = chroma_instance.get_documents(key, ids=test_id)
+        result = chroma_instance.get_documents(key, ids=test_id)  # type:ignore
 
         assert isinstance(result, int)
-
-
-# class TestStreamlitApp:
-#     # App asks auth server to generate new key only for new instances of app
-#     def test_get_new_key(self, streamlit_test_instance, mock_response):
-#         mock_response()
-#         at = streamlit_test_instance
-#         at.run()
-
-#         assert "key" in at.session_state
-#         assert isinstance(at.session_state.key, str)
-#         assert at.session_state.key_expire_datetime > datetime.utcnow()
-
-#     # App renews key if it has an expired one, and does not generate a new key
-#     def test_renew_key_on_expiry(self, streamlit_test_instance, mock_response):
-#         mock_response()
-#         at = streamlit_test_instance
-#         at.session_state.key = "already-generated-key"
-#         at.session_state.key_expire_datetime = datetime.utcnow() - timedelta(days=1)
-#         at.run()
-
-#         assert "already-generated-key" == at.session_state.key
-#         assert at.session_state.key_expire_datetime > datetime.utcnow()
-
-#     # Method to connect to LLM, whether it is API or locally hosted model
-#     def test_connect_llm(self, streamlit_test_instance, mock_response):
-#         mock_response()
-#         at = streamlit_test_instance
-#         at.run()
-
-#         assert "llm" in at.session_state
-# App revokes key on shutdown
-
-
-# Move to integration tests
-# def test_revoke_on_shutdown(
-#     self, chroma_instance, streamlit_test_instance, mock_response, monkeypatch
-# ):
-#     expected_api_response = "test-key"
-#     expected_status_code = 200
-#     mock_response(expected_api_response, expected_status_code)
-
-#     mock_connection = Mock(spec=connections.TestConnection)
-
-#     monkeypatch.setattr(
-#         test_app.TestConnection, "revoke_key", mock_connection.revoke_key
-#     )
-#     # at = streamlit_test_instance
-#     at = AppTest.from_file("../streamlit/test_app.py")
-#     at.secrets["RETRIEVER_API_BASE"] = "test"
-#     at.secrets["RETRIEVER_API_SECRET"] = "test-secret"
-#     at.secrets["OPENAI_API_KEY"] = "test-key"
-#     at.secrets["TEST_ENV"] = True
-#     at.session_state.key = "existing-key"
-#     at.session_state.key_expire_datetime = datetime.utcnow() + timedelta(days=1)
-
-#     at.run()
-
-#     assert mock_connection.revoke_key.assert_called_once()

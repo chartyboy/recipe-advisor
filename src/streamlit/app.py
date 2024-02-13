@@ -57,6 +57,15 @@ else:
 def days_offset_from_current_time(n_days=1) -> datetime:
     """
     Generate a datetime object n days from the current time.
+
+    Parameters
+    ----------
+    n_days : int
+        Number of days to offset by.
+
+    Returns
+    -------
+    datetime object with time offset by n_days.
     """
     return datetime.utcnow() + timedelta(days=n_days)
 
@@ -64,6 +73,16 @@ def days_offset_from_current_time(n_days=1) -> datetime:
 def update_expire_date(n_days: int = 1):
     """
     Update the API key expiration date.
+
+    Parameters
+    ----------
+    n_days : int
+        Number of days to offset by.
+
+    Raises
+    ------
+    RuntimeError
+        If the API key has not yet been configured.
     """
     if "key" not in st.session_state:
         raise RuntimeError("API key not configured yet.")
@@ -83,6 +102,16 @@ def update_expire_date(n_days: int = 1):
 def validate_time(cached_data: dict) -> bool:
     """
     Checks if the currently stored API key has expired.
+
+    Parameters
+    ----------
+    cached_data : dict
+        Stored API key data.
+
+    Returns
+    -------
+    bool
+        True if the API has not yet expired, False if the API key has expired.
     """
     expire_time = cached_data["expires"]
     if "key_expire_datetime" in st.session_state:
@@ -109,6 +138,15 @@ def get_key() -> dict:
 def refresh_key(conn: BaseConnection) -> None:
     """
     Get a new key or renew an existing one from the API.
+
+    Parameters
+    ----------
+    conn : BaseConnection
+        Wrapper class for API connections.
+
+    See Also
+    --------
+    connections.py
     """
     if "key" not in st.session_state:
         key_data = get_key()
@@ -176,6 +214,12 @@ def init_llm():
 def register_shutdown_handler(_conn: BaseConnection, key):
     """
     Registers a function to revoke the API key on shutdown.
+
+    Parameters
+    ----------
+    key : str
+        Stored API key to revoke on app shutdown.
+
     """
     logger.info("Registering shutdown handler")
     atexit.register(_conn.revoke_key, key=key)
@@ -186,6 +230,15 @@ def register_shutdown_handler(_conn: BaseConnection, key):
 def query_llm(chain_inputs: dict, _docs):
     """
     Sends a query to the LLM and returns the response.
+
+    Parameters
+    ----------
+    chain_inputs : dict
+        Input data for the LCEL chain.
+
+    See Also
+    --------
+    chain.py
     """
     llm_chain = initialize_LLM_chain(st.session_state.llm, _docs)
     return llm_chain.invoke(chain_inputs)
@@ -193,6 +246,14 @@ def query_llm(chain_inputs: dict, _docs):
 
 @st.cache_data
 def query_new_name(chain_inputs: dict):
+    """
+    Query the LLM for a new recipe name.
+
+    Parameters
+    ----------
+    chain_inputs : dict
+        Input data for the LCEL chain.
+    """
     name_chain = naming_chain(st.session_state.llm)
     return name_chain.invoke(chain_inputs)
 
@@ -201,6 +262,22 @@ def query_new_name(chain_inputs: dict):
 def query_retriever(query: str, n_docs=1, collection_name="summed") -> dict[str, str]:
     """
     Sends a query to the retriever API and returns the response.
+
+    Parameters
+    ----------
+    query : str
+        String to find relevant documents for.
+
+    n_docs : int
+        Number of documents to find.
+
+    collection_name : str
+        Name of Chroma collection to query.
+
+    Returns
+    -------
+    dict[str, str]
+        Map of [document_id : document_text].
     """
     result = st.session_state.chroma_connection.retrieve_documents(
         st.session_state.key, query, n_docs=n_docs, collection_name=collection_name
@@ -216,6 +293,19 @@ def query_retriever(query: str, n_docs=1, collection_name="summed") -> dict[str,
 def get_by_ids_retriever(ids: list[str], collection_name="summed"):
     """
     Get documents by their database IDs from the retriever API.
+
+    Parameters
+    ----------
+    ids: List[str]
+        Document IDs to get from the API.
+
+    collection_name : str
+        Name of Chroma collection to query.
+
+    Returns
+    -------
+    dict[str, str]
+        Map of [document_id : document_text].
     """
     return st.session_state.chroma_connection.get_documents(
         st.session_state.key, ids, collection_name=collection_name
@@ -783,4 +873,8 @@ with st.form("Input", border=False):
                 llm_response = "Error in querying retriever API. Try again later."
 
             with st.expander(label="Result", expanded=True):
+
+                # See https://discuss.streamlit.io/t/st-write-cant-recognise-n-n-in-the-response-but-when-copied-and-used-in-the-prints-with-new-line/52995
+                llm_response = llm_response.replace("\n", "  \n")
+
                 st.write(llm_response)
