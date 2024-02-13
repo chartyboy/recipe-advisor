@@ -370,8 +370,12 @@ def gather_inputs() -> dict[str, list[str] | str]:
     """
     Collect user inputs from text boxes.
     """
-    ingredients = gather_by_key("n_ingredient", ingredient_input_key)
-    instructions = gather_by_key("n_instruction", instruction_input_key)
+    if st.session_state["multiline_checkbox"]:
+        ingredients = [st.session_state[ingredient_input_key + "multi"]]
+        instructions = [st.session_state[instruction_input_key + "multi"]]
+    else:
+        ingredients = gather_by_key("n_ingredient", ingredient_input_key)
+        instructions = gather_by_key("n_instruction", instruction_input_key)
 
     modifications = dict()
     for i in range(st.session_state.n_modification):
@@ -600,16 +604,17 @@ if st.session_state.show_search_results:
             recipe_id = st.session_state.names_ids[st.session_state["select_recipe"]]
 
 opt_cols = st.columns([1, 1, 2])
-opt_cols[0].checkbox(label="Use multiline input", key="text_checkbox")
+opt_cols[0].checkbox(label="Use multiline input", key="multiline_checkbox")
 opt_cols[1].button(label="Reset Recipe", on_click=reset_fill)
 
 with st.container():
     st.subheader("Ingredients")
-    if st.session_state["text_checkbox"]:
+    if st.session_state["multiline_checkbox"]:
         st.text_area(
             label="Ingredient",
             value="\n".join(st.session_state.current_ingredient),
-            key=ingredient_input_key + str(1),
+            height=180,
+            key=ingredient_input_key + "multi",
             label_visibility="collapsed",
         )
     else:
@@ -644,11 +649,12 @@ with st.container():
 with st.container():
     st.subheader("Instructions")
     header = st.columns([1, 32])
-    if st.session_state["text_checkbox"]:
+    if st.session_state["multiline_checkbox"]:
         st.text_area(
             label="Ingredient",
             value="\n".join(st.session_state.current_instruction),
-            key=instruction_input_key + str(1),
+            height=180,
+            key=instruction_input_key + "multi",
             label_visibility="collapsed",
         )
     else:
