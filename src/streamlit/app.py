@@ -21,8 +21,6 @@ from connections import ChromaConnection, BaseConnection, TestConnection
 
 from chain import initialize_LLM_chain, naming_chain
 
-# logging.basicConfig(level=logging.INFO)
-
 
 @st.cache_resource()
 def init_loggers():
@@ -95,7 +93,6 @@ def update_expire_date(n_days: int = 1):
         return
 
     st.session_state.key_expire_datetime = days_offset_from_current_time(n_days=1)
-    # st.session_state.key_expire = st.session_state.key_expire_datetime.timestamp()
     logger.info(f"API key expires at {st.session_state.key_expire_datetime}")
 
 
@@ -166,7 +163,6 @@ def init_retriever() -> BaseConnection:
     """
     logger.info("Creating new retriever connection")
     if TEST_ENV:
-        # return TestConnection()
         conn = ChromaConnection(
             base_url=RETRIEVER_API_BASE, api_secret=RETRIEVER_API_SECRET
         )
@@ -205,7 +201,6 @@ def init_llm():
         llm = HuggingFacePipeline(pipeline=pipe)
         logger.info("Test env initialized")
         return llm
-        # return OpenAI(model="gpt-3.5-turbo-1106", openai_api_key=OPENAI_API_KEY)
     else:
         return OpenAI(model="gpt-3.5-turbo-1106", openai_api_key=OPENAI_API_KEY)
 
@@ -324,7 +319,6 @@ if not is_alive:
 
 
 # App consts
-# st.set_page_config(layout="wide")
 modify_col_widths = [1.3, 2, 0.5, 2]
 add_another_row_button_label = "Add Another"
 
@@ -432,7 +426,6 @@ def format_recipe(inputs: dict) -> dict[str, str]:
 
         recipe[key] = sub_string
     recipe["recipe"] = "\n\n".join(input_strings)
-    # logger.info(recipe["recipe"])
     return recipe
 
 
@@ -595,16 +588,6 @@ if st.session_state.show_search_results:
             st.session_state.n_instruction = len(instruction)
 
             recipe_id = st.session_state.names_ids[st.session_state["select_recipe"]]
-            # if st.session_state.is_duplicate[recipe_id]:
-            #     st.session_state["name_input"] = st.session_state["select_recipe"][:-2]
-            # else:
-            #     st.session_state["name_input"] = st.session_state["select_recipe"]
-
-            # for item in ingredient:
-            #     st.write(item)
-            # st.write("")
-            # for item in instruction:
-            #     st.write(item)
 
 opt_cols = st.columns([1, 1, 2])
 opt_cols[0].checkbox(label="Use multiline input", key="text_checkbox")
@@ -698,11 +681,6 @@ with st.container():
     modify_row = st.empty()
     modify = modify_row.columns(modify_col_widths)
     st.session_state.modify_rows.append(modify_row)
-
-    # modify[0].write("Customization")
-    # modify[1].write("")
-    # modify[2].write("")
-    # modify[3].write("")
 
     for i in range(st.session_state.n_modification):
         modify_row = st.empty()
@@ -835,14 +813,12 @@ with st.form("Input", border=False):
             with st.spinner("Retrieving..."):
                 time.sleep(1)
                 gathered = gather_inputs()
-                # logger.info(gathered)
 
                 recipe_input = {
                     k: gathered[k]
                     for k in ["Recipe Name", "Ingredients", "Instructions"]
                 }
                 gathered_inputs = format_recipe(recipe_input)
-                # logger.info(gathered_inputs)
                 docs = list(
                     query_retriever(gathered_inputs["recipe"], n_docs=2).values()
                 )
@@ -868,13 +844,10 @@ with st.form("Input", border=False):
                     result = query_llm(chain_inputs, docs_content)
                     llm_response = result["output"]
                     logger.info(result)
-                    # logger.info(type(llm_response))
             else:
                 llm_response = "Error in querying retriever API. Try again later."
 
             with st.expander(label="Result", expanded=True):
-
                 # See https://discuss.streamlit.io/t/st-write-cant-recognise-n-n-in-the-response-but-when-copied-and-used-in-the-prints-with-new-line/52995
                 llm_response = llm_response.replace("\n", "  \n")
-
                 st.write(llm_response)

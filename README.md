@@ -3,20 +3,21 @@
 ## Table of Contents
 [Features](#features)  
 [Get Started](#get-started)  
-[Deployment](#deployment)  
+[Deployment](#deployment)
 [Credits](#credits)
 
 ## Features
 ##### REST API with Chroma for Document Retrieval
 + Chroma database for storing text embeddings
-+ REST API with transformer LLMs for document retrieval
++ REST API for document retrieval from database
 + HTTPS support
 + API key auth
 
 ##### Streamlit App UI
-+ Collects user input and makes requests to the document retrieval API
-+ Queries locally-run LLMs or third-party LLM APIs to create user-requested recipes
-
++ Collects user input and makes requests to the document retrieval API.
++ Queries locally-run HuggingFaceHub LLMs or third-party LLM APIs to create user-requested recipes.
+  
+![Streamlit App Example](/references/images/app_example.gif)
 
 ## Get Started
 ```git clone https://github.com/chartyboy/recipe-advisor.git```
@@ -41,8 +42,7 @@ pip install -r requirements.txt
 This installs all the packages
 necessary for development on this repo. Other ```requirements.txt``` files, such as those located in
 ```docker/retrieval``` or ```src/streamlit``` are minimal package lists for running the respective app.
-The CPU-only version of ```pytorch``` is installed by default. To enable the usage of CUDA when running pytorch models,
-follow  [pytorch's CUDA installation insructions](https://pytorch.org/).
+The CPU-only version of ```pytorch``` is installed by default. To enable the usage of CUDA when running pytorch models, follow  [pytorch's CUDA installation insructions](https://pytorch.org/).  
 
 ## Deployment 
 ### Docker (Recommended)
@@ -72,7 +72,7 @@ docker compose -f retriever.yml up
 From the root project directory,
 ```
 cd docker/streamlit
-docker compose -f retriever.yml up
+docker compose -f streamlit.yml up
 ```
 
 Alternatively, the Streamlit app can be deployed on the [Streamlit Community Cloud](https://streamlit.io/cloud).
@@ -89,7 +89,7 @@ From the root project directory,
 ```
 uvicorn src.retriever.api:app --host localhost --port 8001
 ```
-This launches a FastAPI instance at localhost:8001.
+This launches a FastAPI instance at localhost:8001. Try out the endpoints at /docs.
 
 #### Chroma Database
 From the root project directory,

@@ -25,7 +25,6 @@ EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME")
 def embed():
     # Create embedding database
     model_name = EMBEDDING_MODEL_NAME
-    # model_name = "BAAI/bge-small-en-v1.5"
     model_kwargs = {"device": "cuda"}
     encode_kwargs = {"normalize_embeddings": False}
 
@@ -41,8 +40,6 @@ def embed():
         "tasty_cleaned.jsonl",
     ]
     sources = ["allrecipes.com", "epicurious.com", "foodnetwork.com", "tasty.co"]
-    # sites = ["processed_sample.jsonl"]
-    # sources = ["test.com"]
     json_path = [os.path.join(data_path, website) for website in sites]
     source_map = dict(zip(json_path, sources))
     base_collections = ["name", "ingredient", "instruction"]
@@ -74,16 +71,14 @@ def process():
         "./datasets/interim/allrecipes_cleaned.jsonl",
         "./datasets/interim/tasty_cleaned.jsonl",
     ]
-    # fpath = ["./datasets/raw/sample.jl"]
-    # outpath = ["./datasets/interim/processed_sample2.jsonl"]
 
     rp = process_recipes.RecipeProcessor(schema)
     rp.process_recipes(dict(zip(fpath, outpath)), columns=columns)
 
 
 if __name__ == "__main__":
-    # print("Cleaning data...")
-    # process()
+    print("Cleaning data...")
+    process()
 
     print("Now embedding...")
     embed()

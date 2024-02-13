@@ -23,8 +23,8 @@ test*.ipynb
 .vscode
 
 # Docker dev
-retriever_dev.yml
-retriever_base.Dockerfile
+**/retriever_dev.yml
+**/retriever_base.Dockerfile
 
 # Chroma database files
 **/chroma_db*

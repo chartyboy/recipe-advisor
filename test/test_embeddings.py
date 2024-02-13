@@ -4,7 +4,6 @@ import chromadb
 import json
 import os
 
-from pytest_mock.plugin import MockerFixture
 from typing import Callable
 
 from src.features import embeddings

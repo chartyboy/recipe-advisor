@@ -7,7 +7,7 @@ RUN mkdir /install
 WORKDIR /install
 
 ADD https://github.com/chartyboy/recipe-advisor.git /repo
-RUN cp /repo/docker/retrieval/requirements.txt requirements.txt
+RUN cp /repo/docker/streamlit/requirements.txt requirements.txt
 
 RUN pip install --no-cache-dir --prefix="/install" --ignore-requires-python --pre -r requirements.txt
 

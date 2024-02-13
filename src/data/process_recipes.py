@@ -335,23 +335,3 @@ class RecipeProcessor:
 
             self.df_to_jsonlines(outpath, recipe_df)
             print(f"Finished processing {inpath}, exported to {outpath}.")
-
-
-# if __name__ == "__main__":
-#     schema = ".recipe_name, .ingredients, [.instructions[].text]"
-#     columns = ["recipe_name", "ingredients", "instructions"]
-#     fpath = [
-#         "./datasets/raw/epicurious.jl",
-#         "./datasets/raw/foodnetwork.jl",
-#         "./datasets/raw/allrecipes.jl",
-#         "./datasets/raw/tasty.jl",
-#     ]
-#     outpath = [
-#         "./datasets/interim/epicurious_cleaned.jsonl",
-#         "./datasets/interim/foodnetwork_cleaned.jsonl",
-#         "./datasets/interim/allrecipes_cleaned.jsonl",
-#         "./datasets/interim/tasty_cleaned.jsonl",
-#     ]
-
-#     rp = RecipeProcessor(schema)
-#     rp.process_recipes(dict(zip(fpath, outpath)))

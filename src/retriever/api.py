@@ -192,7 +192,6 @@ def get_by_id(
     """
     chroma_conn = database["conn"]
     embed_func = database["retriever"]
-    # logger.debug(f"IDs:{input.ids}")
     try:
         collection_handle = chroma_conn.get_collection(
             collection_name, embedding_function=embed_func

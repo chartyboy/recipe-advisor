@@ -13,8 +13,6 @@ from .stub_classes import MockResponse, StubLLM
 
 from src.streamlit import connections
 
-# from src.streamlit import test_app
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 

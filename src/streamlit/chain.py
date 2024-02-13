@@ -12,11 +12,8 @@ from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import (
     RunnableParallel,
     RunnablePassthrough,
-    RunnableLambda,
-    RunnableBranch,
 )
 from langchain.schema import format_document
-from langchain.globals import set_debug, set_verbose
 from langchain.schema.output_parser import StrOutputParser
 from prompts import (
     DEFAULT_DOCUMENT_PROMPT,
@@ -58,7 +55,6 @@ def initialize_LLM_chain(LLM_model, retrieved_docs: str):
     Creates a LCEL chain for creating new recipes from user-requestd changes.
     """
     output_parser = StrOutputParser()
-    # retriever_branch = itemgetter("new_name") | retrieved_docs | combine_documents
 
     prompt_inputs = {
         "inputs": lambda x: x["inputs"]
@@ -85,5 +81,4 @@ def initialize_LLM_chain(LLM_model, retrieved_docs: str):
         }
     )
     rag_cot_chain = RunnablePassthrough() | parallels | output_chain
-    # rag_cot_chain = generate_new_name | RunnablePassthrough()
     return rag_cot_chain

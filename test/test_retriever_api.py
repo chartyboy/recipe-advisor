@@ -2,20 +2,16 @@ import pytest
 import os
 import logging
 
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from pytest_mock.plugin import MockerFixture
 
 from src.retriever.api import (
     app,
     connect_database,
     load_retriever_model,
     api_key_security,
-    RetrieveResponse,
 )
 from .stub_classes import (
     StubChromaClient,
-    StubChromaCollection,
     StubErrorChromaClient,
 )
 from src.features.interfaces import EmbeddingFunctionInterface
